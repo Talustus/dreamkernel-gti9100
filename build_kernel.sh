@@ -24,7 +24,7 @@ export ARCH=arm
 export CROSS_COMPILE=$PARENT_DIR/android-toolchain-eabi/bin/arm-eabi-
 
 cd $KERNELDIR/
-nice -n 10 make -j4 || exit 1
+nice -n 10 make -j4 >> compile.log 2>&1 || exit 1
 
 rm -rf $INITRAMFS_TMP
 cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP
