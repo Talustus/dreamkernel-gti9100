@@ -1,6 +1,6 @@
 #!/bin/sh
 export KERNELDIR=`readlink -f .`
-export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../initramfs3`
+export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../initramfs-ics`
 export PARENT_DIR=`readlink -f ..`
 
 if [ "${1}" != "" ];then
@@ -54,7 +54,7 @@ cd -
 xz -1 ../recovery.cpio
 
 cp $KERNELDIR/arch/arm/boot/zImage zImage
-KRNRLS="DreamKernel-0.1alpha1"
+KRNRLS="DreamKernel-0.1alpha2"
 ARCNAME="$KRNRLS-`date +%Y%m%d%H%M%S`.tar"
 echo "making ODIN-Flashable TAR: ${ARCNAME}"
 tar cfv $ARCNAME zImage
