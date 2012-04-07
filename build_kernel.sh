@@ -54,7 +54,7 @@ cd -
 xz -1 ../recovery.cpio
 
 cp $KERNELDIR/arch/arm/boot/zImage zImage
-KRNRLS="DreamKernel-0.1alpha3"
+KRNRLS="DreamKernel-1.0RC1"
 ARCNAME="$KRNRLS-`date +%Y%m%d%H%M%S`.tar"
 echo "making ODIN-Flashable TAR: ${ARCNAME}"
 tar cfv $ARCNAME zImage
