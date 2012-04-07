@@ -1,6 +1,6 @@
 #!/bin/sh
 export KERNELDIR=`readlink -f .`
-export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../initramfs3`
+export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../initramfs-ics`
 export PARENT_DIR=`readlink -f ..`
 
 if [ "${1}" != "" ];then
