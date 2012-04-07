@@ -3935,6 +3935,7 @@ static void mxt224_power_off(void)
 */
 #define MXT224_THRESHOLD_BATT		40
 #define MXT224_THRESHOLD_BATT_INIT		50
+/* Added Values from CM9 */
 #define MXT224_THRESHOLD_CHRG		65
 #define MXT224_NOISE_THRESHOLD_BATT		35
 #define MXT224_NOISE_THRESHOLD_CHRG		45
