@@ -193,8 +193,8 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= arm
-# CROSS_COMPILE	?= $(shell cd ..;pwd)/android-toolchain-eabi/bin/arm-eabi-
-CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
+CROSS_COMPILE	?= $(shell cd ..;pwd)/android-toolchain-eabi/bin/arm-eabi-
+# CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -351,9 +351,8 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 DREAM_FLAGS   = -marm -march=armv7-a -mfloat-abi=hard \
          -mcpu=cortex-a9 -mfpu=vfp3 \
          -fsched-spec-load -floop-interchange -floop-strip-mine -floop-block \
-         -ffast-math \
-         -funswitch-loops -fpredictive-commoning -fgcse-after-reload \
-         -fipa-cp-clone -pipe \      
+         -ffast-math -funswitch-loops -fpredictive-commoning -fgcse-after-reload \
+         -fipa-cp-clone -pipe       
 
 CFLAGS_MODULE   =
 AFLAGS_MODULE   =
