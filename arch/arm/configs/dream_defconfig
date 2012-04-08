@@ -36,7 +36,7 @@ CONFIG_IRQ_WORK=y
 #
 CONFIG_EXPERIMENTAL=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
-CONFIG_CROSS_COMPILE="/home/talustus/android-toolchain-eabi/bin/arm-eabi-"
+CONFIG_CROSS_COMPILE="/home/talustus/toolchain-galaxys2/bin/galaxy-"
 CONFIG_LOCALVERSION="-DreamKernel-v1.0RC1"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_HAVE_KERNEL_GZIP=y

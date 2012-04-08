@@ -21,11 +21,11 @@ rm -rf $INITRAMFS_TMP.cpio
 mkdir $INITRAMFS_TMP
 
 export ARCH=arm
-export CROSS_COMPILE=$PARENT_DIR/android-toolchain-eabi/bin/arm-eabi-
+export CROSS_COMPILE=$PARENT_DIR/toolchain-galaxys2/bin/galaxy-
 
 cd $KERNELDIR/
 rm -v compile.log
-# nice -n 10 make -j4 >> compile.log 2>&1 || exit 1
+
 nice -n 10 make -j4 | tee compile.log || exit 1
 
 rm -rf $INITRAMFS_TMP
