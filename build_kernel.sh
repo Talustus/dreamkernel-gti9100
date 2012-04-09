@@ -48,7 +48,7 @@ find -name '*.ko' -exec cp -av {} $INITRAMFS_TMP/lib/modules/ \;
 nice -n 10 make -j3 zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
 
 cp $KERNELDIR/arch/arm/boot/zImage zImage
-KRNRLS="DreamKernel-1.0RC3"
+KRNRLS="DreamKernel-1.0RC4"
 ARCNAME="$KRNRLS-`date +%Y%m%d%H%M%S`.tar"
 echo "creating ODIN-Flashable TAR: ${ARCNAME}"
 tar cfv $ARCNAME zImage
