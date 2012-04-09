@@ -45,7 +45,7 @@ find -name '*.ko' -exec cp -av {} $INITRAMFS_TMP/lib/modules/ \;
 #ls -lh $INITRAMFS_TMP.cpio
 #cd -
 
-nice -n 10 make -j3 zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" || exit 1
+nice -n 10 make -j3 zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP" || exit 1
 
 cp $KERNELDIR/arch/arm/boot/zImage zImage
 KRNRLS="DreamKernel-1.0RC3"
