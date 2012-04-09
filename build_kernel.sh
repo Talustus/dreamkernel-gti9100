@@ -16,50 +16,43 @@ fi
 
 . $KERNELDIR/.config
 
-rm -rf $INITRAMFS_TMP
-rm -rf $INITRAMFS_TMP.cpio
-mkdir $INITRAMFS_TMP
-
 export ARCH=arm
 export CROSS_COMPILE=$PARENT_DIR/toolchain-galaxys2/bin/galaxy-
 
 cd $KERNELDIR/
 rm -v compile.log
-
 nice -n 10 make -j4 | tee compile.log || exit 1
 
-rm -rf $INITRAMFS_TMP
-cp -ax $INITRAMFS_SOURCE $INITRAMFS_TMP
+# remove previous initramfs files
+rm -rvf $INITRAMFS_TMP
+rm -rvf $INITRAMFS_TMP.cpio
+
+# copy initramfs files to tmp directory
+cp -vax $INITRAMFS_SOURCE $INITRAMFS_TMP
+
+# remove repository realated files
 find $INITRAMFS_TMP -name .git -exec rm -rvf {} \;
 find $INITRAMFS_TMP -name EMPTY_DIRECTORY -exec rm -rvf {} \;
 rm -rvf $INITRAMFS_TMP/.hg
-mkdir -pv $INITRAMFS/lib/modules
+
+# copy modules into initramfs
+mkdir -pv $INITRAMFS_TMP/lib/modules
 find -name '*.ko' -exec cp -av {} $INITRAMFS_TMP/lib/modules/ \;
 
-cd $INITRAMFS_TMP
-find | fakeroot cpio -H newc -o > $INITRAMFS_TMP.cpio 2>/dev/null
-ls -lh $INITRAMFS_TMP.cpio
-cd -
+# create the initramfs cpio archive
+#cd $INITRAMFS_TMP
+#find | fakeroot cpio -H newc -o > $INITRAMFS_TMP.cpio 2>/dev/null
+#ls -lh $INITRAMFS_TMP.cpio
+#cd -
 
 nice -n 10 make -j3 zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" || exit 1
 
-cd ../payload
-rm -f ../payload.cpio
-find | fakeroot cpio -H newc -o > ../payload.cpio
-cd -
-
-cd ../recovery
-rm -f ../recovery.cpio
-rm -f ../recovery.cpio.xz
-find | fakeroot cpio -H newc -o > ../recovery.cpio
-cd -
-xz -1 ../recovery.cpio
-
 cp $KERNELDIR/arch/arm/boot/zImage zImage
-KRNRLS="DreamKernel-1.0RC1"
+KRNRLS="DreamKernel-1.0RC3"
 ARCNAME="$KRNRLS-`date +%Y%m%d%H%M%S`.tar"
-echo "making ODIN-Flashable TAR: ${ARCNAME}"
+echo "creating ODIN-Flashable TAR: ${ARCNAME}"
 tar cfv $ARCNAME zImage
+ls -la $ARCNAME
 #
 #$KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/../payload.cpio $KERNELDIR/../recovery.cpio.xz
 
