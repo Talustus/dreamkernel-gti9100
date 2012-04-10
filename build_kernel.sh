@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Colors for error/info messages
 #
@@ -17,10 +17,12 @@ export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../initramfs-ics`
 export PARENT_DIR=`readlink -f ..`
 export INITRAMFS_TMP="/tmp/initramfs-source"
 export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
+
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-1.0int1"
+KRNRLS="DreamKernel-1.0"
+KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 #
 # Target Settings
 #
@@ -55,6 +57,7 @@ fi
 # remove Files of old/previous Builds
 #
 echo -e "${TXTYLW}Deleting Files of previous Builds ...${TXTCLR}"
+make -j 10 clean
 rm -rvf $INITRAMFS_TMP
 rm -rvf $INITRAMFS_TMP.cpio
 rm -vf $KERNELDIR/compile.log $KERNELDIR/zImage
@@ -64,9 +67,9 @@ rm -vf $KERNELDIR/compile.log $KERNELDIR/zImage
 echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
 cd $KERNELDIR/
 
-nice -n 10 make -j10 | tee compile.log || exit 1
+nice -n 10 make -j 10 | tee compile.log || exit 1
 sleep 2
-echo 0 > .version
+
 echo -e "${TXTGRN}Build: Stage 1 successfully completed${TXTCLR}"
 
 # copy initramfs files to tmp directory
@@ -94,14 +97,14 @@ sleep 1
 echo -e "${TXTYLW}Creating initial Ram Filesystem: ${INITRAMFS_TMP}.cpio ${TXTCLR}"
 cd $INITRAMFS_TMP
 find | fakeroot cpio -H newc -o > $INITRAMFS_TMP.cpio 2>/dev/null
-echo -e "${TXTRED}$(ls -lh ${INITRAMFS_TMP}.cpio)${TXTCLR}"
+ls -lh $INITRAMFS_TMP.cpio
 cd -
 sleep 1
 
 # Start Final Kernel Build
 #
 echo -e "${TXTYLW}Starting final Build: Stage 2${TXTCLR}"
-nice -n 10 make -j8 zImage CONFIG_INITRAMFS_SOURCE="${INITRAMFS_TMP}.cpio" || exit 1
+nice -n 10 make -j 8 zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" || exit 1
 sleep 1
 echo -e "${TXTGRN}Final Build: Stage 2 completed successfully!${TXTCLR}"
 
