@@ -20,7 +20,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-1.0RC5"
+KRNRLS="DreamKernel-1.0int1"
 #
 # Target Settings
 #
