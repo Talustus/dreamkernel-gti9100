@@ -21,8 +21,9 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-1.0"
+KRNRLS="DreamKernel-1.2"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
+HOSTNAME=$KBUILD_BUILD_HOST
 #
 # Target Settings
 #
@@ -67,7 +68,7 @@ rm -vf $KERNELDIR/compile.log $KERNELDIR/zImage
 echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
 cd $KERNELDIR/
 
-nice -n 10 make -j 10 | tee compile.log || exit 1
+nice -n 10 make -j 10 KBUILD_BUILD_HOST="$HOSTNAME" | tee compile.log || exit 1
 sleep 2
 
 echo -e "${TXTGRN}Build: Stage 1 successfully completed${TXTCLR}"
@@ -104,13 +105,16 @@ sleep 1
 # Start Final Kernel Build
 #
 echo -e "${TXTYLW}Starting final Build: Stage 2${TXTCLR}"
-nice -n 10 make -j 8 zImage CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" || exit 1
+nice -n 10 make -j 8 zImage KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" || exit 1
 sleep 1
+$KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
+
 echo -e "${TXTGRN}Final Build: Stage 2 completed successfully!${TXTCLR}"
 
 # Create ODIN Flashable TAR archiv
 #
-cp $KERNELDIR/arch/arm/boot/zImage zImage
+#
+# cp $KERNELDIR/arch/arm/boot/zImage zImage
 ARCNAME="$KRNRLS-`date +%Y%m%d%H%M%S`.tar"
 
 echo -e "${BLDRED}creating ODIN-Flashable TAR: ${ARCNAME}${TXTCLR}"

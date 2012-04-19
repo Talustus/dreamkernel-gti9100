@@ -96,3 +96,5 @@ _tool
 
 Module.symvers
 compile.log
+build_kernel.sh
+
