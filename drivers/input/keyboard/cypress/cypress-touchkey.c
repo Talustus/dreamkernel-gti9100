@@ -1002,9 +1002,6 @@ static int sec_touchkey_late_resume(struct early_suspend *h)
 
 	touchkey_enable = 1;
 
-//prevents leds turning off for CM9
-CYANOGENMOD BLN_ongoing = false;
-
 #if defined(CONFIG_TARGET_LOCALE_NAATT) \
 || defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_MACH_Q1_BD)
 #if defined(CONFIG_TARGET_LOCALE_NA)
@@ -1037,7 +1034,7 @@ CYANOGENMOD BLN_ongoing = false;
 
 static void touchkey_activate(void){
 
-        if( blnww && !wake_lock_active(&bln_wake_lock) ){ 
+        if( !blnww && !wake_lock_active(&bln_wake_lock) ){ 
             printk(KERN_DEBUG "[TouchKey] touchkey get wake_lock\n");
             wake_lock(&bln_wake_lock);
         }
@@ -1056,7 +1053,7 @@ static void touchkey_deactivate(void){
         touchkey_led_ldo_on(0);
         touchkey_ldo_on(0);
 
-        if( blnww && wake_lock_active(&bln_wake_lock) ){
+        if( !blnww && wake_lock_active(&bln_wake_lock) ){
             printk(KERN_DEBUG "[TouchKey] touchkey clear wake_lock\n");
             wake_unlock(&bln_wake_lock);
         }
@@ -1076,7 +1073,7 @@ static void bln_late_resume(struct early_suspend *h){
         printk(KERN_DEBUG "[TouchKey] BLN resume\n");
 
         bln_suspended = false;
-        if( blnww && wake_lock_active(&bln_wake_lock) ){
+        if( !blnww && wake_lock_active(&bln_wake_lock) ){
             printk(KERN_DEBUG "[TouchKey] clear wake lock \n");
             wake_unlock(&bln_wake_lock);
         }
@@ -1121,10 +1118,10 @@ static void enable_led_notification(void){
 static void disable_led_notification(void){
 
         bln_blink_enabled = false;
+        BLN_ongoing = false;
         printk(KERN_DEBUG "[TouchKey] BLN_ongoing set to false\n");
 
-        if( touchkey_enable == 1 && BLN_ongoing ){
-	        BLN_ongoing = false;
+        if( touchkey_enable == 1 ){
             disable_touchkey_backlights();
             if( bln_suspended ){
                 touchkey_deactivate();
@@ -1197,10 +1194,10 @@ static ssize_t blnww_status_write( struct device *dev, struct device_attribute *
 
 
         if(sscanf(buf,"%u\n", &data ) == 1 ){
-			if( data == 1 ) blnww = 1;
+//			if( data == 1 ) blnww = 1;
 			if( data == 0 ) blnww = 0;
         }else{
-			if( !strncmp(buf, "on", 2) ) blnww = 1;
+//			if( !strncmp(buf, "on", 2) ) blnww = 1;
 			if( !strncmp(buf, "off", 3) ) blnww = 0;
         }
 

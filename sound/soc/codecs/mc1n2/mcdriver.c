@@ -37,7 +37,7 @@ static SINT32	update_clock			(const MCDRV_CLOCK_INFO* psClockInfo);
 static SINT32	switch_clock			(const MCDRV_CLKSW_INFO* psClockInfo);
 
 static SINT32	get_path				(MCDRV_PATH_INFO* psPathInfo);
-static SINT32	set_path				(MCDRV_PATH_INFO* psPathInfo);
+static SINT32	set_path				(const MCDRV_PATH_INFO* psPathInfo);
 
 static SINT32	get_volume				(MCDRV_VOL_INFO* psVolInfo);
 static SINT32	set_volume				(const MCDRV_VOL_INFO *psVolInfo);
@@ -824,7 +824,7 @@ static	SINT32	get_path
  ****************************************************************************/
 static	SINT32	set_path
 (
-	MCDRV_PATH_INFO*	psPathInfo
+	const MCDRV_PATH_INFO*	psPathInfo
 )
 {
 	SINT32			sdRet	= MCDRV_SUCCESS;

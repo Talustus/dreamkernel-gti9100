@@ -135,17 +135,12 @@ config GENERIC_LOCKBREAK
 	default y
 	depends on SMP && PREEMPT
 
-choice
-	prompt "rwsem method"
-	default RWSEM_GENERIC_SPINLOCK
-
 config RWSEM_GENERIC_SPINLOCK
-	bool "RWSEM_GENERIC_SPINLOCK"
+	bool
 
 config RWSEM_XCHGADD_ALGORITHM
-	bool "RWSEM_XCHGADD_ALGORITHM"
-
-endchoice
+	bool
+	def_bool y
 
 config ARCH_HAS_ILOG2_U32
 	bool

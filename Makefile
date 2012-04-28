@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 0
-SUBLEVEL = 28
+SUBLEVEL = 29
 EXTRAVERSION =
 NAME = Sneaky Weasel
 
@@ -193,7 +193,7 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= arm
-# CROSS_COMPILE	?= /home/talustus/arm-galaxys2-androideabi/bin/galaxys2-
+# CROSS_COMPILE        ?= /home/talustus/arm-galaxys2-androideabi/bin/galaxys2-
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h

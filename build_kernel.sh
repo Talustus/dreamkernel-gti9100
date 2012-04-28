@@ -1,6 +1,16 @@
 #!/bin/bash
 #
-# Colors for error/info messages
+######################################################
+## DreamKernel Compile Script for Samsung Galaxy S2 ##
+## GT-I9100 Devices.					   ##
+## Script is based on gokhanmorals buildscript	   ## 
+## This Script will build the Kernel,		   ##
+## add the payload (Superuser.apk and su Binary)	   ##
+## to the compiled zImage and also will add a 	   ##
+## Custom "TOUCH enabled" Recovery to the Kernel	   ##
+######################################################
+#
+## Colors for error/info messages (Red,Green,Yellow and bolded)
 #
 TXTRED='\e[0;31m' 		# Red
 TXTGRN='\e[0;32m' 		# Green
@@ -21,7 +31,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-1.2"
+KRNRLS="DreamKernel-1.4"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -91,6 +101,10 @@ rm -rvf $INITRAMFS_TMP/.hg
 echo -e "${TXTGRN}Copying Modules to initramfs: ${INITRAMFS_TMP}/lib/modules${TXTCLR}"
 mkdir -pv $INITRAMFS_TMP/lib/modules
 find -name '*.ko' -exec cp -av {} $INITRAMFS_TMP/lib/modules/ \;
+sleep 1
+
+echo -e "${TXTGRN}Striping Modules to save space${TXTCLR}"
+${CROSS_COMPILE}strip --strip-unneeded $INITRAMFS_TMP/lib/modules/*
 sleep 1
 
 # create the initramfs cpio archive
