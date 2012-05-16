@@ -61,6 +61,8 @@ if [ ! -f $KERNELDIR/.config ];
 then
   echo -e "${TXTYLW}Kernel config does not exists, creating default config (dream_defconfig):${TXTCLR}"
   make dream_defconfig
+  echo -e "${TXTYLW}Kernel config created please redo the command (${0}):${TXTCLR}"
+  exit 0
 fi
 
 . $KERNELDIR/.config
@@ -78,7 +80,7 @@ rm -vf $KERNELDIR/compile.log $KERNELDIR/zImage
 echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
 cd $KERNELDIR/
 
-nice -n 10 make -j 10 KBUILD_BUILD_HOST="$HOSTNAME" | tee compile.log || exit 1
+nice -n 10 make -j 12 KBUILD_BUILD_HOST="$HOSTNAME" modules | tee compile.log || exit 1
 sleep 2
 
 echo -e "${TXTGRN}Build: Stage 1 successfully completed${TXTCLR}"
@@ -119,7 +121,7 @@ sleep 1
 # Start Final Kernel Build
 #
 echo -e "${TXTYLW}Starting final Build: Stage 2${TXTCLR}"
-nice -n 10 make -j 8 zImage KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" || exit 1
+nice -n 10 make -j 10 zImage KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" || exit 1
 sleep 1
 $KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
 
