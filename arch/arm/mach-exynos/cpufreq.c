@@ -85,6 +85,8 @@ static unsigned int exynos_get_safe_armvolt(unsigned int old_index, unsigned int
 	return safe_arm_volt;
 }
 
+unsigned int smooth_level = L8;
+
 static int exynos_target(struct cpufreq_policy *policy,
 			  unsigned int target_freq,
 			  unsigned int relation)
@@ -139,8 +141,9 @@ static int exynos_target(struct cpufreq_policy *policy,
 
 #if defined(CONFIG_CPU_EXYNOS4210)
 	/* Do NOT step up max arm clock directly to reduce power consumption */
-	if (index <= L4 && old_index > L8)
-		index = L8;
+	if (policy->governor->enableSmoothScaling &&
+		index == exynos_info->max_current_idx && old_index > smooth_level)
+		index = smooth_level;
 #endif
 
 	freqs.new = freq_table[index].frequency;
@@ -698,13 +701,6 @@ ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf)
 	return len;
 }
 
-#define VREF_SEL     1	/* 0: 0.625V (50mV step), 1: 0.3125V (25mV step). */
-#define V_STEP       (25 * (2 - VREF_SEL)) /* Minimum voltage step size. */
-#define VREG_DATA    (VREG_CONFIG | (VREF_SEL << 5))
-#define VREG_CONFIG  (BIT(7) | BIT(6)) /* Enable VREG, pull-down if disabled. */
-/* Cause a compile error if the voltage is not a multiple of the step size. */
-#define MV(mv)      ((mv) / (!((mv) % V_STEP)))
-
 ssize_t acpuclk_get_vdd_levels_str(char *buf)
 {
 int i, len = 0;
@@ -713,7 +709,7 @@ if (buf)
 for (i = exynos_info->max_support_idx; i<=exynos_info->min_support_idx; i++)
 {
 if(exynos_info->freq_table[i].frequency==CPUFREQ_ENTRY_INVALID) continue;
-len += sprintf(buf + len, "%8u: %4d\n", exynos_info->freq_table[i].frequency, exynos_info->volt_table[i]);
+len += sprintf(buf + len, "%8u: %4d\n", exynos_info->freq_table[i].frequency, exynos_info->volt_table[i] / 1000);
 }
 }
 return len;
@@ -723,14 +719,13 @@ void acpuclk_set_vdd(unsigned int khz, unsigned int vdd)
 {
 int i;
 unsigned int new_vdd;
-vdd = vdd / V_STEP * V_STEP;
 for (i = exynos_info->max_support_idx; i<=exynos_info->min_support_idx; i++)
 {
 if(exynos_info->freq_table[i].frequency==CPUFREQ_ENTRY_INVALID) continue;
 if (khz == 0)
-new_vdd = min(max((unsigned int)(exynos_info->volt_table[i] + vdd), (unsigned int)CPU_UV_MV_MIN), (unsigned int)CPU_UV_MV_MAX);
+new_vdd = min(max((unsigned int)(exynos_info->volt_table[i] + vdd * 1000), (unsigned int)CPU_UV_MV_MIN), (unsigned int)CPU_UV_MV_MAX);
 else if (exynos_info->freq_table[i].frequency == khz)
-new_vdd = min(max((unsigned int)vdd, (unsigned int)CPU_UV_MV_MIN), (unsigned int)CPU_UV_MV_MAX);
+new_vdd = min(max((unsigned int)vdd * 1000, (unsigned int)CPU_UV_MV_MIN), (unsigned int)CPU_UV_MV_MAX);
 else continue;
 
 exynos_info->volt_table[i] = new_vdd;
@@ -806,7 +801,7 @@ ssize_t store_available_freqs_exynos4210(struct cpufreq_policy *policy,
 	if(count < 1) return -EINVAL;
 
 	//parse input
-	for(j = 0; i < count; i++)
+	for(j = 0, i = 0; i < count; i++)
 	{
 		char c = buf[i];
 		if(c >= '0' && c <= '9')
@@ -884,3 +879,15 @@ ssize_t store_available_freqs_exynos4210(struct cpufreq_policy *policy,
 	return count;
 }
 
+ssize_t show_smooth_level(struct cpufreq_policy *policy, char *buf) {
+      return sprintf(buf, "%d\n", smooth_level);
+}
+ssize_t store_smooth_level(struct cpufreq_policy *policy,
+                                      const char *buf, size_t count) {
+	unsigned int ret = -EINVAL, level;
+	ret = sscanf(buf, "%d", &level);
+	if(ret!=1) return -EINVAL;
+	if(level<0 || level>17) return -EINVAL;
+	smooth_level = level;
+	return count;
+}

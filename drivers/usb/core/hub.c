@@ -1648,7 +1648,6 @@ void usb_disconnect(struct usb_device **pdev)
 {
 	struct usb_device	*udev = *pdev;
 	int			i;
-	struct usb_hcd		*hcd = bus_to_hcd(udev->bus);
 
 	if (!udev) {
 		pr_debug ("%s nodev\n", __func__);
@@ -1676,9 +1675,7 @@ void usb_disconnect(struct usb_device **pdev)
 	 * so that the hardware is now fully quiesced.
 	 */
 	dev_dbg (&udev->dev, "unregistering device\n");
-	mutex_lock(hcd->bandwidth_mutex);
 	usb_disable_device(udev, 0);
-	mutex_unlock(hcd->bandwidth_mutex);
 	usb_hcd_synchronize_unlinks(udev);
 
 	usb_remove_ep_devs(&udev->ep0);
@@ -2917,6 +2914,11 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 		udev->ttport = hdev->ttport;
 	} else if (udev->speed != USB_SPEED_HIGH
 			&& hdev->speed == USB_SPEED_HIGH) {
+/*		if (!hub->tt.hub) {
+			dev_err(&udev->dev, "parent hub has no TT\n");
+			retval = -EINVAL;
+			goto fail;
+		}*/
 		udev->tt = &hub->tt;
 		udev->ttport = port1;
 	}

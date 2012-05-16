@@ -53,12 +53,6 @@ static void process_port_intr(struct usb_hcd *hcd)
 	if (hprt.b.prtenchng) {
 		otg_dbg(true, "port enable/disable changed\n");
 		otghost->port_flag.b.port_enable_change = 1;
-
-		// kevinh - it seems the hw implicitly disables the interface on unplug, so mark that we are unplugged
-		if(!hprt.b.prtconnsts) {
-		  otghost->port_flag.b.port_connect_status_change = 1;
-		  otghost->port_flag.b.port_connect_status = 0;
-		}
 	}
 
 	if (hprt.b.prtovrcurrchng) {
@@ -125,7 +119,7 @@ static inline void otg_handle_interrupt(struct usb_hcd *hcd)
 	if (gintsts.b.conidstschng) {
 		otg_dbg(OTG_DBG_ISR, "Connect ID Status Change Interrupt\n");
 		clearIntr.b.conidstschng = 1;
-		oci_init_mode();
+		oci_init_mode(otghost);
 	}
 
 	if (gintsts.b.hcintr) {
@@ -173,13 +167,19 @@ static inline void otg_handle_interrupt(struct usb_hcd *hcd)
  */
 static int otg_hcd_init_modules(struct sec_otghost *otghost)
 {
+	unsigned long	spin_lock_flag = 0;
+
 	otg_dbg(OTG_DBG_OTGHCDI_HCD, "otg_hcd_init_modules\n");
 
 	spin_lock_init(&otghost->lock);
 
+	spin_lock_irqsave(&otghost->lock, spin_lock_flag);
+
 	init_transfer();
 	init_scheduler();
 	oci_init(otghost);
+
+	spin_unlock_irqrestore(&otghost->lock, spin_lock_flag);
 
 	return USB_ERR_SUCCESS;
 };
@@ -240,6 +240,7 @@ static irqreturn_t	s5pc110_otghcd_irq(struct usb_hcd *hcd)
 static int	s5pc110_otghcd_start(struct usb_hcd *usb_hcd_p)
 {
 	struct	usb_bus *usb_bus_p;
+	struct sec_otghost *otghost = hcd_to_sec_otghost(usb_hcd_p);
 
 	otg_dbg(OTG_DBG_OTGHCDI_HCD, "s5pc110_otghcd_start\n");
 
@@ -268,7 +269,7 @@ static int	s5pc110_otghcd_start(struct usb_hcd *usb_hcd_p)
 	/* init bus state	before enable irq */
 	usb_hcd_p->state = HC_STATE_RUNNING;
 
-	oci_start(); /* enable irq */
+	oci_start(otghost); /* enable irq */
 
 	return USB_ERR_SUCCESS;
 }
@@ -443,6 +444,12 @@ static int s5pc110_otghcd_urb_enqueue(struct usb_hcd *hcd,
 	spin_lock_irqsave(&otghost->lock, spin_lock_flag);
 
 	otg_dbg(OTG_DBG_OTGHCDI_HCD, "enqueue\n");
+/*	if (compare_ed(otghost, urb->ep->hcpriv, urb)) {
+		otg_err(OTG_DBG_OTGHCDI_HCD, "compare ed error\n");
+		pr_info("otg compare ed error\n");
+		spin_unlock_irqrestore(&otghost->lock, spin_lock_flag);
+		return USB_ERR_FAIL;
+	} */
 
 	/* check ep has ed_t or not */
 	if (!(urb->ep->hcpriv)) {
@@ -521,6 +528,7 @@ static int s5pc110_otghcd_urb_enqueue(struct usb_hcd *hcd,
 					(dev_speed == LOW_SPEED_OTG)) &&
 					(urb->dev->tt) &&
 					(urb->dev->tt->hub->devnum != 1)) {
+					if (otghost->is_hs) // only allow split transactions in HS mode
 					f_is_do_split = true;
 				}
 				hub_addr = (u8)(urb->dev->tt->hub->devnum);
@@ -656,8 +664,8 @@ static int s5pc110_otghcd_urb_dequeue(
 		return USB_ERR_SUCCESS;
 	}
 
-	// kevinh - important to read this from inside of the spinlock (so ISR can't change hcpriv first)
-	cancel_td = _urb->hcpriv;
+	//kevinh read this from inside the spinlock
+	cancel_td = (struct td *)_urb->hcpriv;
 
 	if (cancel_td == NULL) {
 		otg_err(OTG_DBG_OTGHCDI_HCD, "cancel_td is NULL\n");

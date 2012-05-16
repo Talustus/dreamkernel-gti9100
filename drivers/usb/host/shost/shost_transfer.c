@@ -144,14 +144,15 @@ static int cancel_transfer(struct sec_otghost *otghost,
 				otg_dbg(OTG_DBG_TRANSFER,
 						"cancel_to_transfer_td\n");
 				cancel_td->error_code = err;
-			//	otg_usbcore_giveback(cancel_td);
+				otg_usbcore_giveback(cancel_td);
 				goto ErrorStatus;
 			}
 
-			otg_list_pop(&cancel_td->td_list_entry);
-			parent_ed->num_td--;
 		}
-
+		// kevinh - even if the record was in the ready queue it is important to delete it as well.  We can also always remove the ed from the scheduler
+		// once all tds have been removed
+		otg_list_pop(&cancel_td->td_list_entry);
+		parent_ed->num_td--;
 	} else {
 
 		otg_list_pop(&cancel_td->td_list_entry);
@@ -162,10 +163,10 @@ static int cancel_transfer(struct sec_otghost *otghost,
 	}
 
 	if (parent_ed->num_td) {
-        // kevinh - we do not want to force insert_scheduler, because if this endpoint _was_ already scheduled
-        // because the deleted td was not the active td then we will now put ed into the scheduler list twice, thus
-        // corrupting it.
-        // parent_ed->is_need_to_insert_scheduler = true;
+          // kevinh - we do not want to force insert_scheduler, because if this endpoint _was_ already scheduled
+          // because the deleted td was not the active td then we will now put ed into the scheduler list twice, thus
+          // corrupting it.
+          // parent_ed->is_need_to_insert_scheduler = true;
 		insert_ed_to_scheduler(otghost, parent_ed);
 
 	} else {
@@ -187,10 +188,13 @@ static int cancel_transfer(struct sec_otghost *otghost,
 	/* the caller of this functions should call
 	   otg_usbcore_giveback(cancel_td); */
 	cancel_td->error_code = USB_ERR_DEQUEUED;
-	//otg_usbcore_giveback(cancel_td);
 	// kevinh - fixed bug, the caller should take care of calling delete_td because they might still want to do some
 	// operations on that memory
 	// delete_td(cancel_td);
+	// otg_usbcore_giveback(cancel_td);
+
+	///* TODO: recursive call occured. FIX */
+	//delete_td(otghost, cancel_td);
 
 ErrorStatus:
 
@@ -256,7 +260,7 @@ static int delete_ed(struct sec_otghost *otghost, struct ed *delete_ed)
 	otg_kal_make_ep_null(delete_ed);
 
 	if (delete_ed->num_td) {
-		cancel_all_td(otghost, delete_ed); 
+		cancel_all_td(otghost, delete_ed);
 	/**
 	 * need to giveback of td's urb with considering life-cycle of
 	 * TD, ED, urb->hcpriv, td->private, ep->hcpriv, td->parentED
@@ -586,6 +590,11 @@ static int init_ed(struct ed *init_ed,
 	init_ed->ed_status.is_in_transferring		= false;
 	init_ed->ed_status.is_ping_enable			= false;
 	init_ed->ed_status.in_transferring_td		= 0;
+
+// sztupy: split transaction support
+	init_ed->ed_status.is_complete_split = false;
+	init_ed->ed_status.split_pos = ED_STATUS_SPLIT_POS_ALL;
+	init_ed->ed_status.split_offset = 0;
 
 	/* push the ed to ED_list. */
 	otg_list_push_prev(&init_ed->ed_list_entry, &ed_list_head);
