@@ -95,7 +95,6 @@ _t32
 _tool
 
 Module.symvers
-compile.log
-build_kernel.sh
+compile-*.log
+# build_kernel.sh
 Changelog
-
