@@ -131,12 +131,22 @@ echo -e "${TXTGRN}Final Build: Stage 2 completed successfully!${TXTCLR}"
 #
 #
 # cp $KERNELDIR/arch/arm/boot/zImage zImage
-ARCNAME="$KRNRLS-`date +%Y%m%d%H%M%S`.tar"
+ARCNAME="$KRNRLS-`date +%Y%m%d%H%M%S`"
 
-echo -e "${BLDRED}creating ODIN-Flashable TAR: ${ARCNAME}${TXTCLR}"
-tar cfv $ARCNAME zImage
-mv -v $ARCNAME $RELEASEDIR
-ls -lh $RELEASEDIR/$ARCNAME
+echo -e "${BLDRED}creating ODIN-Flashable TAR: and CWM flashable ZIP: ${ARCNAME}.tar/.zip ${TXTCLR}"
+## ODIN
+tar cfv $ARCNAME.tar zImage
+mv -v $ARCNAME.tar $RELEASEDIR
+
+## CWM
+cp -v $RELEASEDIR/updater-template.zip $RELEASEDIR/$ARCNAME-CWM.zip
+zip -u $RELEASEDIR/$ARCNAME-CWM.zip zImage
+
+
+## List the Files
+ls -lh $RELEASEDIR/$ARCNAME.tar
+ls -lh $RELEASEDIR/$ARCNAME-CWM.zip
+
 echo -e "${BLDGRN}	#############################	${TXTCLR}"
 echo -e "${TXTRED}	# Script completed, exiting #	${TXTCLR}"
 echo -e "${BLDGRN}	#############################	${TXTCLR}"
