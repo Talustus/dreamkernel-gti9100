@@ -31,7 +31,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-1.6"
+KRNRLS="DreamKernel-1.7"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -72,15 +72,17 @@ fi
 echo -e "${TXTYLW}Deleting Files of previous Builds ...${TXTCLR}"
 make -j 10 clean
 rm -rvf $INITRAMFS_TMP
-rm -rvf $INITRAMFS_TMP.cpio
-rm -vf $KERNELDIR/compile.log $KERNELDIR/zImage
+rm -vf $INITRAMFS_TMP.cpio
+rm -fv $KERNELDIR/zImage
+rm -vf $KERNELDIR/compile-modules.log
+rm -vf $KERNELDIR/compile-zImage.log
 
 # Start the Build
 #
 echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
 cd $KERNELDIR/
 
-nice -n 10 make -j 12 KBUILD_BUILD_HOST="$HOSTNAME" modules | tee compile.log || exit 1
+nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" modules 2>&1 | tee compile-modules.log || exit 1
 sleep 2
 
 echo -e "${TXTGRN}Build: Stage 1 successfully completed${TXTCLR}"
@@ -121,7 +123,7 @@ sleep 1
 # Start Final Kernel Build
 #
 echo -e "${TXTYLW}Starting final Build: Stage 2${TXTCLR}"
-nice -n 10 make -j 10 zImage KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" || exit 1
+nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | tee compile-zImage.log || exit 1
 sleep 1
 $KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
 
