@@ -97,4 +97,5 @@ _tool
 Module.symvers
 compile-*.log
 # build_kernel.sh
+build_dev-kernel.sh
 Changelog
