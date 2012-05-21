@@ -98,4 +98,5 @@ Module.symvers
 compile-*.log
 # build_kernel.sh
 build_dev-kernel.sh
+arch/arm/configs/dream_dev_defconfig
 Changelog
