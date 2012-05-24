@@ -22,7 +22,6 @@
 #ifndef __S3C_USB_GADGET
 #define __S3C_USB_GADGET
 
-#include <linux/host_notify.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/ioport.h>
@@ -127,6 +126,7 @@ struct s3c_udc {
 	struct usb_gadget gadget;
 	struct usb_gadget_driver *driver;
 	struct platform_device *dev;
+	struct clk *clk;
 	spinlock_t lock;
 
 	int ep0state;
@@ -141,6 +141,7 @@ struct s3c_udc {
 	unsigned int irq;
 	unsigned req_pending:1, req_std:1, req_config:1;
 	struct wake_lock	usbd_wake_lock;
+	struct wake_lock	usb_cb_wake_lock;
 	int udc_enabled;
 };
 
@@ -152,22 +153,4 @@ extern void samsung_cable_check_status(int flag);
 #define ep_index(EP)		((EP)->bEndpointAddress&0xF)
 #define ep_maxpacket(EP)	((EP)->ep.maxpacket)
 
-#if defined CONFIG_USB_S3C_OTG_HOST || defined CONFIG_USB_DWC_OTG
-#define USB_OTG_DRIVER_S3CHS 1
-#define USB_OTG_DRIVER_S3CFSLS 2
-#define USB_OTG_DRIVER_S3C USB_OTG_DRIVER_S3CHS | USB_OTG_DRIVER_S3CFSLS
-#define USB_OTG_DRIVER_DWC 4
-#endif
-extern atomic_t g_OtgHostMode; // actual mode: client (0) or host (1)
-extern atomic_t g_OtgOperationMode; // operation mode: 'c'lient, 'h'ost, 'o'tg or 'a'uto-host
-extern atomic_t g_OtgLastCableState; // last cable state: detached (0), client attached (1), otg attached (2)
-extern atomic_t g_OtgDriver; // driver to use: 0: S3C High-speed, 1: S3C Low-speed/Full-speed, 2: DWC
-#ifdef CONFIG_USB_S3C_OTG_HOST
-extern struct platform_driver s5pc110_otg_driver;
-#endif
-#ifdef CONFIG_USB_DWC_OTG
-extern struct platform_driver dwc_otg_driver;
-#endif
-extern int s3c_is_otgmode(void);
-extern int s3c_get_drivermode(void);
 #endif
