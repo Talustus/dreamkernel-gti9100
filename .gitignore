@@ -101,3 +101,4 @@ build-kernel.log
 build_dev-kernel.sh
 arch/arm/configs/dream_dev_defconfig
 Changelog
+!recovery.tar.xz
