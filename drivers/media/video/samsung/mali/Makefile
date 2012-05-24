@@ -54,6 +54,11 @@ ifeq ($(CONFIG_VIDEO_MALI400MP_DEBUG),y)
 BUILD=debug
 endif
 
+ifeq ($(CONFIG_VIDEO_MALI400MP_STREAMLINE_PROFILING),y)
+USING_PROFILING=1
+USING_TRACEPOINTS=1
+endif
+
 # set up defaults if not defined by the user
 PANIC_ON_WATCHDOG_TIMEOUT ?= 1 
 USING_MALI400 ?= 1
@@ -278,4 +283,3 @@ SVN_REV:=$(shell ((svnversion | grep -qv exported && echo -n 'Revision: ' && svn
 
 EXTRA_CFLAGS += -DSVN_REV=$(SVN_REV)
 EXTRA_CFLAGS += -DSVN_REV_STRING=\"$(SVN_REV)\"
-
