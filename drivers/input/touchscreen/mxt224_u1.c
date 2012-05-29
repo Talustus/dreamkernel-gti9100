@@ -449,12 +449,12 @@ static void mxt224_ta_probe(bool ta_status)
 	}
 
 	if (ta_status) {
-	  copy_data->threshold = copy_pdata->tchthr_charging;
-	  calcfg_dis = copy_pdata->calcfg_charging_e;
-	  calcfg_en = copy_pdata->calcfg_charging_e | 0x20;
-	  noise_threshold = copy_pdata->noisethr_charging;
-	  movfilter = copy_pdata->movfilter_charging;
-	  charge_time = copy_pdata->chrgtime_charging_e;
+		copy_data->threshold = copy_pdata->tchthr_charging;
+		calcfg_dis = copy_pdata->calcfg_charging_e;
+		calcfg_en = copy_pdata->calcfg_charging_e | 0x20;
+		noise_threshold = copy_pdata->noisethr_charging;
+		movfilter = copy_pdata->movfilter_charging;
+		charge_time = copy_pdata->chrgtime_charging_e;
 #ifdef CLEAR_MEDIAN_FILTER_ERROR
 		copy_data->gErrCondition = ERR_RTN_CONDITION_MAX;
 		copy_data->noise_median.mferr_setting = false;
@@ -463,13 +463,13 @@ static void mxt224_ta_probe(bool ta_status)
 		if (copy_data->boot_or_resume == 1)
 			copy_data->threshold = copy_pdata->tchthr_batt_init;
 		else
-		  copy_data->threshold = copy_pdata->tchthr_batt;
-		  copy_data->threshold_e = copy_pdata->tchthr_batt_e;
-		  calcfg_dis = copy_pdata->calcfg_batt_e;
-		  calcfg_en = copy_pdata->calcfg_batt_e | 0x20;
-		  noise_threshold = copy_pdata->noisethr_batt;
-		  movfilter = copy_pdata->movfilter_batt;
-		  charge_time = copy_pdata->chrgtime_batt_e;
+			copy_data->threshold = copy_pdata->tchthr_batt;
+		copy_data->threshold_e = copy_pdata->tchthr_batt_e;
+		calcfg_dis = copy_pdata->calcfg_batt_e;
+		calcfg_en = copy_pdata->calcfg_batt_e | 0x20;
+		noise_threshold = copy_pdata->noisethr_batt;
+		movfilter = copy_pdata->movfilter_batt;
+		charge_time = copy_pdata->chrgtime_batt_e;
 #ifdef CLEAR_MEDIAN_FILTER_ERROR
 		copy_data->gErrCondition = ERR_RTN_CONDITION_IDLE;
 		copy_data->noise_median.mferr_count = 0;

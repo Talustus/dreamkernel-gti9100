@@ -183,8 +183,6 @@ struct cpufreq_governor {
 			will fallback to performance governor */
 	struct list_head	governor_list;
 	struct module		*owner;
-	int disableScalingDuringSuspend;
-	int enableSmoothScaling;
 };
 
 /*
@@ -385,10 +383,10 @@ extern struct cpufreq_governor cpufreq_gov_pegasusq;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_pegasusq)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_HOTPLUG)		//-gm
 extern struct cpufreq_governor cpufreq_gov_hotplug;		//-gm
-#define CPUFREQ_DEFAULT_GOVERNOR  (&cpufreq_gov_hotplug)	//-gm
-#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_LULZACTIVE)		// Talustus
-extern struct cpufreq_governor cpufreq_gov_lulzactive;		// Talustus
-#define CPUFREQ_DEFAULT_GOVERNOR  (&cpufreq_gov_lulzactive)	// Talustus
+#define CPUFREQ_DEFAULT_GOVERNOR  (&cpufreq_gov_hotplug)       //-gm
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_LULZACTIVE)          // Talustus
+extern struct cpufreq_governor cpufreq_gov_lulzactive;         // Talustus
+#define CPUFREQ_DEFAULT_GOVERNOR  (&cpufreq_gov_lulzactive)    // Talustus
 #endif
 
 
