@@ -31,7 +31,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-1.9"
+KRNRLS="DreamKernel-v2.0.1"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -55,7 +55,18 @@ then
   fi
 fi
 
-
+## a 3.* config exists??? Clean the Tree as we are doing a release build
+if [ -f $KERNELDIR/.config ];
+then
+  grep 'DreamKernel-v3.' $KERNELDIR/.config > /dev/null
+  if [ "$?" == "0" ];
+  then
+    echo -e "${TXTYLW}found a 3.x series config ..., cleaning kernel Source tree${TXTCLR}"
+    make -j10 distclean
+  else
+    echo -e "${BLDGRN}Found a 2.x Series config OK....${TXTCLR}"
+  fi
+fi
 
 if [ ! -f $KERNELDIR/.config ];
 then
