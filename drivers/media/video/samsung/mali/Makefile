@@ -283,3 +283,4 @@ SVN_REV:=$(shell ((svnversion | grep -qv exported && echo -n 'Revision: ' && svn
 
 EXTRA_CFLAGS += -DSVN_REV=$(SVN_REV)
 EXTRA_CFLAGS += -DSVN_REV_STRING=\"$(SVN_REV)\"
+

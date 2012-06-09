@@ -2675,7 +2675,11 @@ static int max8997_muic_charger_cb(int cable_type)
 
 	if (!psy) {
 		pr_err("%s: fail to get battery ps\n", __func__);
+#if defined(CONFIG_MACH_Q1_BD)
+		return 0;
+#else
 		return -ENODEV;
+#endif
 	}
 
 	switch (cable_type) {
@@ -2718,12 +2722,36 @@ static int max8997_muic_charger_cb(int cable_type)
 #ifdef CONFIG_USB_HOST_NOTIFY
 static void usb_otg_accessory_power(int enable)
 {
+#ifdef CONFIG_SMB328_CHARGER	/* Q1_EUR_OPEN */
+	u8 on = (u8)!!enable;
+	struct power_supply *psy_sub =
+		power_supply_get_by_name("smb328-charger");
+	union power_supply_propval value;
+	int ret;
+
+	if (!psy_sub) {
+		pr_info("%s: fail to get charger ps\n", __func__);
+		return;
+	}
+
+	value.intval = on;
+	ret = psy_sub->set_property(psy_sub,
+		POWER_SUPPLY_PROP_CHARGE_TYPE, /* only for OTG */
+		&value);
+	if (ret) {
+		pr_info("%s: fail to set OTG (%d)\n",
+			__func__, ret);
+		return;
+	}
+	pr_info("%s: otg power = %d\n", __func__, on);
+#else
 	u8 on = (u8)!!enable;
 
 	gpio_request(GPIO_USB_OTG_EN, "USB_OTG_EN");
 	gpio_direction_output(GPIO_USB_OTG_EN, on);
 	gpio_free(GPIO_USB_OTG_EN);
 	pr_info("%s: otg accessory power = %d\n", __func__, on);
+#endif
 }
 
 static struct host_notifier_platform_data host_notifier_pdata = {
@@ -2977,6 +3005,9 @@ static void set_shared_mic_bias(void)
 void sec_set_sub_mic_bias(bool on)
 {
 #ifdef CONFIG_SND_SOC_USE_EXTERNAL_MIC_BIAS
+#if defined(CONFIG_MACH_Q1_BD)
+	gpio_set_value(GPIO_SUB_MIC_BIAS_EN, on);
+#else
 	if (system_rev < SYSTEM_REV_SND) {
 		unsigned long flags;
 		spin_lock_irqsave(&mic_bias_lock, flags);
@@ -2985,13 +3016,16 @@ void sec_set_sub_mic_bias(bool on)
 		spin_unlock_irqrestore(&mic_bias_lock, flags);
 	} else
 		gpio_set_value(GPIO_SUB_MIC_BIAS_EN, on);
-
+#endif
 #endif
 }
 
 void sec_set_main_mic_bias(bool on)
 {
 #ifdef CONFIG_SND_SOC_USE_EXTERNAL_MIC_BIAS
+#if defined(CONFIG_MACH_Q1_BD)
+	gpio_set_value(GPIO_MIC_BIAS_EN, on);
+#else
 	if (system_rev < SYSTEM_REV_SND) {
 		unsigned long flags;
 		spin_lock_irqsave(&mic_bias_lock, flags);
@@ -3000,6 +3034,7 @@ void sec_set_main_mic_bias(bool on)
 		spin_unlock_irqrestore(&mic_bias_lock, flags);
 	} else
 		gpio_set_value(GPIO_MIC_BIAS_EN, on);
+#endif
 #endif
 }
 
@@ -3041,6 +3076,16 @@ static void u1_sound_init(void)
 	gpio_set_value(GPIO_EAR_MIC_BIAS_EN, 0);
 	gpio_free(GPIO_EAR_MIC_BIAS_EN);
 
+#if defined(CONFIG_MACH_Q1_BD)
+	err = gpio_request(GPIO_SUB_MIC_BIAS_EN, "submic_bias");
+	if (err) {
+		pr_err(KERN_ERR "SUB_MIC_BIAS_EN GPIO set error!\n");
+		return;
+	}
+	gpio_direction_output(GPIO_SUB_MIC_BIAS_EN, 1);
+	gpio_set_value(GPIO_SUB_MIC_BIAS_EN, 0);
+	gpio_free(GPIO_SUB_MIC_BIAS_EN);
+#else
 	if (system_rev >= SYSTEM_REV_SND) {
 		err = gpio_request(GPIO_SUB_MIC_BIAS_EN, "submic_bias");
 		if (err) {
@@ -3050,6 +3095,7 @@ static void u1_sound_init(void)
 		gpio_direction_output(GPIO_SUB_MIC_BIAS_EN, 0);
 		gpio_free(GPIO_SUB_MIC_BIAS_EN);
 	}
+#endif /* defined(CONFIG_MACH_Q1_BD) */
 #endif
 }
 #endif
@@ -3811,10 +3857,14 @@ struct platform_device u1_keypad = {
 #ifdef CONFIG_SEC_DEV_JACK
 static void sec_set_jack_micbias(bool on)
 {
+#if defined(CONFIG_MACH_Q1_BD)
+	gpio_set_value(GPIO_EAR_MIC_BIAS_EN, on);
+#else
 	if (system_rev >= 3)
 		gpio_set_value(GPIO_EAR_MIC_BIAS_EN, on);
 	else
 		gpio_set_value(GPIO_MIC_BIAS_EN, on);
+#endif
 }
 
 static struct sec_jack_zone sec_jack_zones[] = {
@@ -3850,8 +3900,13 @@ static struct sec_jack_zone sec_jack_zones[] = {
 		 * stays in this range for 100ms (10ms delays, 10 samples)
 		 */
 		.adc_high = 3800,
+#if defined (CONFIG_MACH_Q1_BD)
+		.delay_ms = 15,
+		.check_count = 20,
+#else
 		.delay_ms = 10,
 		.check_count = 5,
+#endif
 		.jack_type = SEC_HEADSET_4POLE,
 	},
 	{
@@ -6206,9 +6261,15 @@ static void __init smdkc210_machine_init(void)
 				ARRAY_SIZE(i2c_devs10_emul));
 #endif
 #ifdef CONFIG_S3C_DEV_I2C11_EMUL
+#if defined (CONFIG_SENSORS_CM3663)
 	s3c_gpio_setpull(GPIO_PS_ALS_INT, S3C_GPIO_PULL_NONE);
 	i2c_register_board_info(11, i2c_devs11_emul,
 				ARRAY_SIZE(i2c_devs11_emul));
+#endif
+#if defined (CONFIG_MACH_Q1_BD)
+	i2c_register_board_info(11, i2c_devs11_emul,
+				ARRAY_SIZE(i2c_devs11_emul));
+#endif
 #endif
 #ifdef CONFIG_S3C_DEV_I2C14_EMUL
 	nfc_setup_gpio();

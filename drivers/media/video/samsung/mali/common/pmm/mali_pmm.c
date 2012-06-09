@@ -120,7 +120,7 @@ void power_test_start()
 {
 	power_test_timer = _mali_osk_timer_init();
 	_mali_osk_timer_setcallback( power_test_timer, power_test_callback, NULL );
-
+	
 	/* First event is power down */
 	power_test_event = MALI_PMM_EVENT_OS_POWER_DOWN;
 	_mali_osk_timer_add( power_test_timer, 10000 );
@@ -151,10 +151,10 @@ mali_bool power_test_check()
 			power_test_event = MALI_PMM_EVENT_OS_POWER_DOWN;
 		}
 		_mali_osk_timer_add( power_test_timer, 5000 );
-
+		
 		return MALI_TRUE;
 	}
-
+	
 	return MALI_FALSE;
 }
 
@@ -189,7 +189,7 @@ void _mali_ukk_pmm_event_message( _mali_uk_pmm_message_s *args )
 		event->id = args->id;
 		event->ts = _mali_osk_time_tickcount();
 		event->data = args->data;
-
+		
 		_mali_osk_atomic_inc( &(pmm->messages_queued) );
 
 		if( args->id > MALI_PMM_EVENT_INTERNALS )
@@ -215,7 +215,7 @@ void _mali_ukk_pmm_event_message( _mali_uk_pmm_message_s *args )
 		/* Make note of this OOM - which has caused a missed event */
 		pmm->missed++;
 	}
-
+	
 	/* Schedule time to look at the event or the fact we couldn't create an event */
 	_mali_osk_irq_schedulework( pmm->irq );
 }
@@ -369,7 +369,7 @@ void _mali_pmm_trace_hardware_change( mali_pmm_core_mask old, mali_pmm_core_mask
 		{
 			dname = pmm_trace_get_core_name( newstate );
 		}
-
+			
 		/* These state checks only work if the assumption that only cores can be
 		 * turned on or turned off in seperate actions is true. If core power states can
 		 * be toggled (some one, some off) at the same time, this check does not work
@@ -444,7 +444,7 @@ void _mali_pmm_trace_event_message( mali_pmm_message_t *event, mali_bool receive
 		case MALI_PMM_EVENT_INTERNAL_POWER_DOWN_ACK:
 			dname = pmm_trace_get_core_name( (mali_pmm_core_mask)event->data );
 			break;
-
+			
 		case MALI_PMM_EVENT_TIMEOUT:
 			dname = "timeout start";
 			/* Print data with a different format */
@@ -490,7 +490,7 @@ _mali_osk_errcode_t malipmm_create(_mali_osk_resource_t *resource)
 #else 
 	pmm_state->policy = MALI_PMM_POLICY_JOB_CONTROL;
 #endif
-
+	
 #if MALI_PMM_TRACE
 	_mali_pmm_trace_policy_change( MALI_PMM_POLICY_NONE, pmm_state->policy );
 #endif
@@ -750,7 +750,7 @@ _mali_osk_errcode_t malipmm_core_register( mali_pmm_core_id core )
 #endif /* MALI_STATE_TRACKING */
 
 	MALI_PMM_UNLOCK(pmm);
-
+	
 	return err;
 }
 
@@ -859,7 +859,7 @@ void malipmm_irq_bhandler(void *data)
 		MALI_PRINT_ERROR( ("PMM: Failed to send %d events", pmm->missed) );
 		pmm_fatal_reset( pmm );
 	}
-
+	
 	if( pmm->check_policy )
 	{
 		pmm->check_policy = MALI_FALSE;

@@ -638,7 +638,7 @@ int _mali_dev_platform_register(void)
 	gpu_clock_control_start();
 	gpu_voltage_control_start();
 #endif
-
+	
 #ifdef CONFIG_PM_RUNTIME
 #if MALI_PMM_RUNTIME_JOB_CONTROL_ON
 	err = register_pm_notifier(&mali_pwr_notif_block);
