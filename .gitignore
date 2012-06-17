@@ -99,6 +99,7 @@ compile-*.log
 # build_kernel.sh
 build-kernel.log
 build_dev-kernel.sh
+build_n7000-kernel.sh
 arch/arm/configs/dream_dev_defconfig
 Changelog
 !recovery.tar.xz
