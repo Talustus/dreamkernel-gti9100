@@ -607,7 +607,7 @@ static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 {
-	char iovbuf[32];
+	// char iovbuf[32];
 #ifndef CUSTOMER_HW_SAMSUNG
 	int power_mode = PM_MAX;
 	/* wl_pkt_filter_enable_t	enable_parm; */
