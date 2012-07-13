@@ -93,7 +93,7 @@ static int exynos_target(struct cpufreq_policy *policy,
 {
 	unsigned int index, old_index = UINT_MAX;
 	unsigned int arm_volt, safe_arm_volt = 0;
-	int ret = 0, i;
+	int ret = 0;
 	struct cpufreq_frequency_table *freq_table = exynos_info->freq_table;
 	unsigned int *volt_table = exynos_info->volt_table;
 
@@ -102,21 +102,28 @@ static int exynos_target(struct cpufreq_policy *policy,
 	if (exynos_cpufreq_disable)
 		goto out;
 
-	freqs.old = policy->cur;
+	freqs.old = exynos_getspeed(policy->cpu);
 
-	/*
-	 * cpufreq_frequency_table_target() cannot be used for freqs.old
-	 * because policy->min/max may have been changed. If changed, the
-	 * resulting old_index may be inconsistent with freqs.old, which
-	 * will lead to inconsistent voltage/frequency configurations later.
-	 */
-	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
-		if (freq_table[i].frequency == freqs.old)
-			old_index = freq_table[i].index;
-	}
-	if (old_index == UINT_MAX) {
-		ret = -EINVAL;
-		goto out;
+	if(policy->max < freqs.old || policy->min > freqs.old)
+	{
+		struct cpufreq_policy policytemp;
+		memcpy(&policytemp, policy, sizeof(struct cpufreq_policy));
+		if(policytemp.max < freqs.old)
+			policytemp.max = freqs.old;
+		if(policytemp.min > freqs.old)
+			policytemp.min = freqs.old;
+		if (cpufreq_frequency_table_target(&policytemp, freq_table,
+						   freqs.old, relation, &old_index)) {
+			ret = -EINVAL;
+			goto out;
+		}
+	} else
+	{
+		if (cpufreq_frequency_table_target(policy, freq_table,
+						   freqs.old, relation, &old_index)) {
+			ret = -EINVAL;
+			goto out;
+		}
 	}
 
 	if (cpufreq_frequency_table_target(policy, freq_table,
@@ -817,7 +824,7 @@ ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 		else
 			break;
 	}
-	
+
 	//find number of available steps
 	for(i = exynos_info->max_support_idx; i<=exynos_info->min_support_idx; i++)
 	{
@@ -827,7 +834,7 @@ ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 	//do not keep backward compatibility for scripts this time.
 	//I want the number of tokens to be exactly the same with stepcount -gm
 	if(stepcount != tokencount) return -EINVAL;
-	
+
 	//we have u[0] starting from the first available frequency to u[stepcount]
 	//that is why we use an additiona j here...
 	for(j=0, i = exynos_info->max_support_idx; i<=exynos_info->min_support_idx; i++)
@@ -853,7 +860,7 @@ ssize_t store_available_freqs_exynos4210(struct cpufreq_policy *policy,
 	int u[18] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 	int f[18] = {1600,1500,1400,1300,1200,1100,1000,900,800,700,600,500,400,300,200,100,50,25};
 	int i, j, tokencount = 0, ret = 0;
-	
+
 	if(count < 1) return -EINVAL;
 
 	//parse input
