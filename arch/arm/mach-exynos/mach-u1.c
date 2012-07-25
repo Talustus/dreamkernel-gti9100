@@ -3050,7 +3050,7 @@ void sec_set_ldo1_constraints(int disabled)
 static struct mc1n2_platform_data mc1n2_pdata = {
 	.set_main_mic_bias = sec_set_main_mic_bias,
 	.set_sub_mic_bias = sec_set_sub_mic_bias,
-	.set_adc_power_contraints = sec_set_ldo1_constraints,
+	.set_adc_power_constraints = sec_set_ldo1_constraints,
 };
 
 static void u1_sound_init(void)
@@ -3835,6 +3835,8 @@ struct gpio_keys_button u1_buttons[] = {
 		.wakeup = 1,
 		.isr_hook = sec_debug_check_crash_key,
 	},			/* power key */
+#if !defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+
 	{
 		.code = KEY_HOME,
 		.gpio = GPIO_OK_KEY,
@@ -3842,6 +3844,7 @@ struct gpio_keys_button u1_buttons[] = {
 		.type = EV_KEY,
 		.wakeup = 1,
 	},			/* ok key */
+#endif
 };
 
 struct gpio_keys_platform_data u1_keypad_platform_data = {
