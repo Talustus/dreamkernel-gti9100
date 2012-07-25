@@ -3957,11 +3957,11 @@ static int mc1n2_hwdep_ioctl_notify(struct snd_soc_codec *codec,
 	case MCDRV_NOTIFY_CALL_START:
 	case MCDRV_NOTIFY_2MIC_CALL_START:
 		mc1n2_current_mode |= MC1N2_MODE_CALL_ON;
-		mc1n2->pdata->set_adc_power_contraints(0);
+		mc1n2->pdata->set_adc_power_constraints(0);
 		break;
 	case MCDRV_NOTIFY_CALL_STOP:
 		mc1n2_current_mode &= ~MC1N2_MODE_CALL_ON;
-		mc1n2->pdata->set_adc_power_contraints(1);
+		mc1n2->pdata->set_adc_power_constraints(1);
 		break;
 	case MCDRV_NOTIFY_MEDIA_PLAY_START:
 		break;
