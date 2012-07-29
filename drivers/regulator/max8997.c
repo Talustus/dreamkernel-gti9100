@@ -317,6 +317,14 @@ static int max8997_ldo_disable(struct regulator_dev *rdev)
 	return max8997_update_reg(i2c, reg, val<<shift, mask<<shift);
 }
 
+static int max8997_ldo_suspend_enable(struct regulator_dev *rdev)
+{
+  	if (rdev->use_count > 0)
+    	  return max8997_ldo_enable(rdev);
+	else
+	  return max8997_ldo_disable(rdev);
+}
+
 static int max8997_get_voltage_register(struct regulator_dev *rdev,
 				int *_reg, int *_shift, int *_mask)
 {
@@ -770,18 +778,18 @@ static int max8997_flash_set_current(struct regulator_dev *rdev,
 static struct regulator_ops max8997_ldo_ops = {
 	.list_voltage		= max8997_list_voltage,
 	.is_enabled		= max8997_ldo_is_enabled,
-	.enable			= max8997_ldo_enable,
+	.enable		= max8997_ldo_enable,
 	.disable		= max8997_ldo_disable,
 	.get_voltage		= max8997_get_voltage,
 	.set_voltage		= max8997_set_voltage_ldo,
-	.set_suspend_enable	= max8997_ldo_enable,
+	.set_suspend_enable  = max8997_ldo_suspend_enable,
 	.set_suspend_disable	= max8997_ldo_disable,
 };
 
 static struct regulator_ops max8997_buck_ops = {
 	.list_voltage		= max8997_list_voltage,
 	.is_enabled		= max8997_ldo_is_enabled,
-	.enable			= max8997_ldo_enable,
+	.enable		= max8997_ldo_enable,
 	.disable		= max8997_ldo_disable,
 	.get_voltage		= max8997_get_voltage,
 	.set_voltage		= max8997_set_voltage_buck,
@@ -791,7 +799,7 @@ static struct regulator_ops max8997_buck_ops = {
 
 static struct regulator_ops max8997_flash_ops = {
 	.is_enabled		= max8997_flash_is_enabled,
-	.enable			= max8997_flash_enable,
+	.enable		= max8997_flash_enable,
 	.disable		= max8997_flash_disable,
 	.set_current_limit	= max8997_flash_set_current,
 	.get_current_limit	= max8997_flash_get_current,

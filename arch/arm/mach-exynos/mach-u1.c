@@ -3999,10 +3999,10 @@ static void mxt224_power_off(void)
   Configuration for MXT224
 */
 #define MXT224_THRESHOLD_BATT		40
-#define MXT224_THRESHOLD_BATT_INIT		50
-#define MXT224_THRESHOLD_CHRG		55
-#define MXT224_NOISE_THRESHOLD_BATT		30
-#define MXT224_NOISE_THRESHOLD_CHRG		40
+#define MXT224_THRESHOLD_BATT_INIT	55
+#define MXT224_THRESHOLD_CHRG		70
+#define MXT224_NOISE_THRESHOLD_BATT	30
+#define MXT224_NOISE_THRESHOLD_CHRG	40
 #define MXT224_MOVFILTER_BATT		11
 #define MXT224_MOVFILTER_CHRG		47
 #define MXT224_ATCHCALST		4
@@ -4063,18 +4063,18 @@ static const u8 *mxt224_config[] = {
 #define MXT224E_THRESHOLD_CHRG		40
 #define MXT224E_CALCFG_BATT		0x42
 #define MXT224E_CALCFG_CHRG		0x52
-#define MXT224E_ATCHFRCCALTHR_NORMAL		40
-#define MXT224E_ATCHFRCCALRATIO_NORMAL		55
+#define MXT224E_ATCHFRCCALTHR_NORMAL	40
+#define MXT224E_ATCHFRCCALRATIO_NORMAL	55
 #define MXT224E_GHRGTIME_BATT		27
 #define MXT224E_GHRGTIME_CHRG		22
 #define MXT224E_ATCHCALST		4
 #define MXT224E_ATCHCALTHR		35
 #define MXT224E_BLEN_BATT		32
 #define MXT224E_BLEN_CHRG		16
-#define MXT224E_MOVFILTER_BATT		46
+#define MXT224E_MOVFILTER_BATT		13
 #define MXT224E_MOVFILTER_CHRG		46
-#define MXT224E_ACTVSYNCSPERX_NORMAL		32
-#define MXT224E_NEXTTCHDI_NORMAL		0
+#define MXT224E_ACTVSYNCSPERX_NORMAL	32
+#define MXT224E_NEXTTCHDI_NORMAL	0
 
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
 static u8 t7_config_e[] = { GEN_POWERCONFIG_T7,
@@ -5587,7 +5587,17 @@ static struct platform_device exynos4_busfreq = {
 };
 #endif
 
+#ifdef CONFIG_SEC_WATCHDOG_RESET
+static struct platform_device watchdog_reset_device = {
+  .name = "watchdog-reset",
+  .id = -1,
+};
+#endif
+
 static struct platform_device *smdkc210_devices[] __initdata = {
+#ifdef CONFIG_SEC_WATCHDOG_RESET
+  &watchdog_reset_device,
+#endif
 	&exynos4_device_pd[PD_MFC],
 	&exynos4_device_pd[PD_G3D],
 	&exynos4_device_pd[PD_LCD0],
