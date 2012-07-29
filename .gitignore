@@ -60,7 +60,6 @@ include/config
 include/linux/version.h
 include/generated
 arch/*/include/generated
-zImage
 include/asm
 include/asm-arm
 include/config
@@ -70,6 +69,7 @@ include/linux/version.h
 include/linux/utsrelease.h
 include/linux/bounds.h
 include/generated
+zImage
 
 # stgit generated dirs
 patches-*
@@ -95,9 +95,8 @@ _t32
 _tool
 
 Module.symvers
-compile-*.log
-# build_kernel.sh
-build-kernel.log
+build_*.sh-modules.log
+build_*.sh-zImage.log
 build_dev-kernel.sh
 build_n7000-kernel.sh
 arch/arm/configs/dream_dev_defconfig
