@@ -31,7 +31,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-v3.2.8TWRP"
+KRNRLS="DreamKernel-v3.2.9TWRP"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -58,27 +58,27 @@ fi
 # remove Files of old/previous Builds
 #
 echo -e "${TXTYLW}Deleting Files of previous Builds ...${TXTCLR}"
+cd $KERNELDIR/
 make -j10 distclean
 rm -rvf $INITRAMFS_TMP
 rm -vf $INITRAMFS_TMP.cpio
 rm -fv $KERNELDIR/zImage
-rm -vf $KERNELDIR/compile-modules.log
-rm -vf $KERNELDIR/compile-zImage.log
+rm -vf $KERNELDIR/$0-modules.log
+rm -vf $KERNELDIR/$0-zImage.log
 
 # Start the Build
 #
 echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
-cd $KERNELDIR/
-
+echo
 echo -e "${TXTYLW}Creating default kernel Config (dream_sgs2_defconfig):${TXTCLR}"
 make dream_sgs2_defconfig
 echo
 
 echo -e "${TXTYLW}Changing kernelVersions String to match TWRP Build:${TXTCLR}"
-sed -i 's|DreamKernel-v2.6.8|DreamKernel-v3.2.8TWRP|g' .config
+sed -i 's|DreamKernel-v2.6.9|DreamKernel-v3.2.9TWRP|g' .config
 
 . $KERNELDIR/.config
-nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" modules 2>&1 | tee compile-modules.log || exit 1
+nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" modules 2>&1 | tee $0-modules.log || exit 1
 sleep 2
 
 echo -e "${TXTGRN}Build: Stage 1 successfully completed${TXTCLR}"
@@ -121,7 +121,7 @@ sleep 1
 # Start Final Kernel Build
 #
 echo -e "${TXTYLW}Starting final Build: Stage 2${TXTCLR}"
-nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | tee compile-zImage.log || exit 1
+nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | tee $0-zImage.log || exit 1
 sleep 1
 $KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
 

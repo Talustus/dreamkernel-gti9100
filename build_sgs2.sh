@@ -31,7 +31,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-v2.6.8"
+KRNRLS="DreamKernel-v2.6.9"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -61,18 +61,18 @@ fi
 # remove Files of old/previous Builds
 #
 echo -e "${TXTYLW}Deleting Files of previous Builds ...${TXTCLR}"
+cd $KERNELDIR/
 make -j10 distclean
 rm -rvf $INITRAMFS_TMP
 rm -vf $INITRAMFS_TMP.cpio
 rm -fv $KERNELDIR/zImage
-rm -vf $KERNELDIR/compile-modules.log
-rm -vf $KERNELDIR/compile-zImage.log
+rm -vf $KERNELDIR/$0-modules.log
+rm -vf $KERNELDIR/$0-zImage.log
 
 # Start the Build
 #
 echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
-cd $KERNELDIR/
-
+echo
 echo -e "${TXTYLW}Creating default kernel Config (dream_sgs2_defconfig):${TXTCLR}"
 make dream_sgs2_defconfig
 echo

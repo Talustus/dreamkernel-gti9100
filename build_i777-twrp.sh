@@ -23,7 +23,8 @@ TXTCLR='\e[0m'    		# Text Reset
 # Directory Settings
 #
 export KERNELDIR=`readlink -f .`
-export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../samsung-galaxy-sghi777/initramfs`
+export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../initramfs-twrp`
+# export INITRAMFS_SOURCE=`readlink -f $KERNELDIR/../samsung-galaxy-sghi777/initramfs`
 export PARENT_DIR=`readlink -f ..`
 export INITRAMFS_TMP="/tmp/initramfsi777"
 export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
@@ -31,7 +32,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-I777-v3.2.8TWRP"
+KRNRLS="DreamKernel-I777-v3.2.9TWRP"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -55,36 +56,35 @@ then
   fi
 fi
 
-. $KERNELDIR/.config
-
 # remove Files of old/previous Builds
 #
 echo -e "${TXTYLW}Deleting Files of previous Builds ...${TXTCLR}"
+cd $KERNELDIR/
 make -j10 distclean
 rm -rvf $INITRAMFS_TMP
 rm -vf $INITRAMFS_TMP.cpio
 rm -fv $KERNELDIR/zImage
-rm -vf $KERNELDIR/compile-modules.log
-rm -vf $KERNELDIR/compile-zImage.log
+rm -vf $KERNELDIR/$0-modules.log
+rm -vf $KERNELDIR/$0-zImage.log
 
 ## Checkout the DualRecovery Branch of initramfs
-echo -e "${TXTYLW}Changing GIT Branch of initramfs to master ...${TXTCLR}"
-cd $INITRAMFS_SOURCE
-git checkout dualrecovery
+# echo -e "${TXTYLW}Changing GIT Branch of initramfs to master ...${TXTCLR}"
+# cd $INITRAMFS_SOURCE
+# git checkout dualrecovery
+# cd $KERNELDIR/ 
 
 # Start the Build
 #
 echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
-cd $KERNELDIR/
-
-echo -e "${TXTYLW}Creating default kernel Config (dream_i777_noswap_defconfig):${TXTCLR}"
+echo
+echo -e "${TXTYLW}Creating default kernel Config (dream_i777_defconfig):${TXTCLR}"
 make dream_i777_defconfig
-sed -i 's|DreamKernel-I777-v2.6.8|-DreamKernel-I777-v3.2.8TWRP|g' .config
+sed -i 's|DreamKernel-I777-v2.6.9|-DreamKernel-I777-v3.2.9TWRP|g' .config
 echo
 
 . $KERNELDIR/.config
 
-nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" modules 2>&1 | tee compile-modules.log || exit 1
+nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" modules 2>&1 | tee $0-modules.log || exit 1
 sleep 2
 
 echo -e "${TXTGRN}Build: Stage 1 successfully completed${TXTCLR}"
@@ -125,7 +125,7 @@ sleep 1
 # Start Final NO-Swap Kernel Build
 #
 echo -e "${TXTYLW}Starting final Build: Stage 2 for NO-SWAP Kernel${TXTCLR}"
-nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | tee compile-zImage.log || exit 1
+nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | tee $0-zImage.log || exit 1
 sleep 1
 
 $KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
@@ -167,7 +167,7 @@ sed -i 's|# CONFIG_SND_SOC_MC1N2_MIC_ADC_SWAP is not set|CONFIG_SND_SOC_MC1N2_MI
 echo 0 > $KERNELDIR/.version
 . $KERNELDIR/.config
 
-nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | tee compile-zImage.log || exit 1
+nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | tee $0-zImage.log || exit 1
 sleep 1
 
 $KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
