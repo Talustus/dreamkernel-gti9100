@@ -438,6 +438,13 @@ struct input_keymap_entry {
 #define KEY_WIMAX		246
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
+#define KEY_POUND		248
+#define KEY_STAR		249
+#define KEY_NETWORK		250
+
+#define KEY_FOLDER_OPEN		251
+#define KEY_FOLDER_CLOSE	252
+
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100
@@ -783,11 +790,15 @@ struct input_keymap_entry {
 #define ABS_MT_TRACKING_ID	0x39	/* Unique ID of initiated contact */
 #define ABS_MT_PRESSURE		0x3a	/* Pressure on contact area */
 #define ABS_MT_DISTANCE		0x3b	/* Contact hover distance */
+#define ABS_MT_ANGLE		0x3c	/* touch angle */
+#define ABS_MT_COMPONENT	0x3c	/* touch component */
+#define ABS_MT_PALM		0x3d	/* palm touch */
+#define ABS_MT_SUMSIZE		0x3d	/* touch sumsize */
 
 #ifdef __KERNEL__
 /* Implementation details, userspace should not care about these */
 #define ABS_MT_FIRST		ABS_MT_TOUCH_MAJOR
-#define ABS_MT_LAST		ABS_MT_DISTANCE
+#define ABS_MT_LAST		ABS_MT_PALM
 #endif
 
 #define ABS_MAX			0x3f
