@@ -1,4 +1,5 @@
- make config: don't edit
+#
+# Automatically generated make config: don't edit
 # Linux/arm 3.0.15 Kernel Configuration
 #
 CONFIG_ARM=y
