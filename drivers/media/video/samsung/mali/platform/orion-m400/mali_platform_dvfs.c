@@ -78,15 +78,18 @@ mali_dvfs_currentstatus maliDvfsStatus;
 int mali_dvfs_control=0;
 
 /*dvfs table*/
+#if defined(CONFIG_MACH_Q1_BD) || defined(CONFIG_MACH_PX)
 mali_dvfs_table mali_dvfs[MALI_DVFS_STEPS]={
-#if defined(CONFIG_MACH_Q1_BD)
-                        /* more pixels to push and bigger battery */
+			/* more pixels to push and bigger battery */
 			/*step 0*/{100  ,1000000    , 950000},
-#else
-			/*step 0*/{66   ,1000000    , 925000},
-#endif
 			/*step 1*/{160  ,1000000    , 950000},
 			/*step 2*/{267  ,1000000    ,1000000} };
+#else
+mali_dvfs_table mali_dvfs[MALI_DVFS_STEPS]={
+			/*step 0*/{66   ,1000000    , 925000},
+			/*step 1*/{160  ,1000000    , 950000},
+			/*step 2*/{267  ,1000000    ,1000000} };
+#endif
 
 #ifdef EXYNOS4_ASV_ENABLED
 
