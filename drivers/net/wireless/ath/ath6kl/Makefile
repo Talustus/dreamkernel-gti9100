@@ -22,29 +22,29 @@
 # Author(s): ="Atheros"
 #------------------------------------------------------------------------------
 
-obj-$(CONFIG_ATH6KL_SDIO) := ath6kl_sdio.o
-ath6kl_sdio-y += debug.o
-ath6kl_sdio-y += debugfs_pri.o
-ath6kl_sdio-y += hif.o
-ath6kl_sdio-y += htc.o
-ath6kl_sdio-y += bmi.o
-ath6kl_sdio-y += cfg80211.o
-ath6kl_sdio-y += cfg80211_btcoex.o
-ath6kl_sdio-y += pm.o
-ath6kl_sdio-y += init.o
-ath6kl_sdio-y += main.o
-ath6kl_sdio-y += txrx.o
-ath6kl_sdio-y += wmi.o
-ath6kl_sdio-y += wmi_btcoex.o
-ath6kl_sdio-y += sdio.o
+obj-$(CONFIG_ATH6KL) := ath6kl.o
+ath6kl-y += debug.o
+ath6kl-y += debugfs_pri.o
+ath6kl-y += hif.o
+ath6kl-y += htc.o
+ath6kl-y += bmi.o
+ath6kl-y += cfg80211.o
+ath6kl-y += cfg80211_btcoex.o
+ath6kl-y += pm.o
+ath6kl-y += init.o
+ath6kl-y += main.o
+ath6kl-y += txrx.o
+ath6kl-y += wmi.o
+ath6kl-y += wmi_btcoex.o
+ath6kl-$(CONFIG_ATH6KL_SDIO) += sdio.o
 ifeq ($(CONFIG_MACH_PX),y)
-ath6kl_sdio-y += c210.o
+ath6kl-$(CONFIG_ATH6KL_SDIO) += c210.o
 else
-ath6kl_sdio-y += msm.o
+ath6kl-$(CONFIG_ATH6KL_SDIO) += msm.o
 endif
-ath6kl_sdio-y += softmac.o
-ath6kl_sdio-y += wmiconfig.o
-ath6kl_sdio-$(CONFIG_NL80211_TESTMODE) += testmode.o
+ath6kl-y += softmac.o
+ath6kl-y += wmiconfig.o
+ath6kl-$(CONFIG_NL80211_TESTMODE) += testmode.o
 
 obj-$(CONFIG_ATH6KL_USB) += ath6kl_usb.o
 ath6kl_usb-y += debug.o

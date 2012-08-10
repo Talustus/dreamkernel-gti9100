@@ -78,6 +78,7 @@ static enum power_supply_property sec_battery_properties[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_ONLINE,
 };
 
 static enum power_supply_property sec_power_properties[] = {
@@ -1058,6 +1059,8 @@ static int sec_bat_get_property(struct power_supply *bat_ps,
 	struct battery_data *battery = container_of(bat_ps,
 				struct battery_data, psy_battery);
 
+	enum charger_type charger = battery->info.charging_source;
+
 	pr_debug("psp = %d", psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -1090,6 +1093,13 @@ static int sec_bat_get_property(struct power_supply *bat_ps,
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = battery->info.batt_temp;
 		pr_debug("temp = %d\n", val->intval);
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		if ((charger == CHARGER_AC) || (charger == CHARGER_MISC)
+			|| (charger == CHARGER_DOCK) || (charger == CHARGER_USB))
+			val->intval = 1;
+		else
+			val->intval = 0;
 		break;
 	default:
 		return -EINVAL;
