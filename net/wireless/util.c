@@ -746,9 +746,9 @@ static void cfg80211_process_wdev_events(struct wireless_dev *wdev)
 				NULL);
 			break;
 		case EVENT_ROAMED:
-			__cfg80211_roamed(wdev, ev->rm.channel, ev->rm.bssid,
-					  ev->rm.req_ie, ev->rm.req_ie_len,
-					  ev->rm.resp_ie, ev->rm.resp_ie_len);
+			__cfg80211_roamed(wdev, ev->rm.bss, ev->rm.req_ie,
+					  ev->rm.req_ie_len, ev->rm.resp_ie,
+					  ev->rm.resp_ie_len);
 			break;
 		case EVENT_DISCONNECTED:
 			__cfg80211_disconnected(wdev->netdev,
@@ -1001,20 +1001,20 @@ int cfg80211_can_change_interface(struct cfg80211_registered_device *rdev,
 				limits[j].max -= num[iftype];
 			}
 		}
-/*
 
-* Finally check that all iftypes that we're currently
-* using are actually part of this combination. If they
-     * aren't then we can't use this combination and have
-     * to continue to the next.
-     */
-    if ((all_iftypes & used_iftypes) != used_iftypes)
-      goto cont;
+		/*
+		 * Finally check that all iftypes that we're currently
+		 * using are actually part of this combination. If they
+		 * aren't then we can't use this combination and have
+		 * to continue to the next.
+		 */
+		if ((all_iftypes & used_iftypes) != used_iftypes)
+			goto cont;
 
-    /*
-     * This combination covered all interface types and
-     * supported the requested numbers, so we're good.
-     */
+		/*
+		 * This combination covered all interface types and
+		 * supported the requested numbers, so we're good.
+		 */
 		kfree(limits);
 		return 0;
  cont:

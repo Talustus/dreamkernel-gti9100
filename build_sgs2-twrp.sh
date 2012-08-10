@@ -96,7 +96,9 @@ find $INITRAMFS_TMP -name .git -exec rm -rvf {} \;
 find $INITRAMFS_TMP -name EMPTY_DIRECTORY -exec rm -rvf {} \;
 rm -rvf $INITRAMFS_TMP/.hg
 sleep 1
-rm -rf $INITRAMFS_TMP/res/backup
+
+## Remove Audio Library's for SGH-I777 Devices
+rm -fv $INITRAMFS_TMP/res/misc/libaudio.tar.xz
 
 # copy modules into initramfs
 #

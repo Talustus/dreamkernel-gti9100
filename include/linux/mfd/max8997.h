@@ -129,7 +129,6 @@ enum cable_type {
 	CABLE_TYPE_NONE = 0,
 	CABLE_TYPE_USB,
 	CABLE_TYPE_OTG,
-	CABLE_TYPE_OTG_VB, /* VBUS (sink) enabled */
 	CABLE_TYPE_TA,
 	CABLE_TYPE_DESKDOCK,
 	CABLE_TYPE_CARDOCK,
@@ -145,7 +144,7 @@ enum cable_type {
 };
 
 struct max8997_muic_data {
-	void		(*usb_cb) (u8 usb_mode, bool bus_powered);
+	void		(*usb_cb) (u8 attached);
 	void		(*uart_cb) (u8 attached);
 	int		(*charger_cb) (int cable_type);
 	void		(*deskdock_cb) (bool attached);
@@ -154,12 +153,18 @@ struct max8997_muic_data {
 	void		(*init_cb) (void);
 	int		(*set_safeout) (int path);
 	bool		(*is_mhl_attached) (void);
+#if !defined(CONFIG_MACH_U1CAMERA_BD)
 	int		(*cfg_uart_gpio) (void);
+#endif /* CONFIG_MACH_U1CAMERA_BD */
 	void		(*jig_uart_cb) (int path);
 	int		(*host_notify_cb) (int enable);
+#if !defined(CONFIG_MACH_U1CAMERA_BD)
 	int		gpio_usb_sel;
+#endif /* CONFIG_MACH_U1CAMERA_BD */
 	int		sw_path;
+#if !defined(CONFIG_MACH_U1CAMERA_BD)
 	int		uart_path;
+#endif /* CONFIG_MACH_U1CAMERA_BD */
 };
 
 struct max8997_buck1_dvs_funcs {
@@ -190,6 +195,7 @@ struct max8997_buck1_dvs_funcs {
  * @buck_ramp_en: enable BUCKx RAMP
  * @buck_ramp_delay: ramp delay(usec) BUCK RAMP register(0x15)
  * @flash_cntl_val: value of MAX8997_REG_FLASH_CNTL register
+ * @mr_debounce_time: manual reset debounce time (sec), (default 7sec)
  */
 struct max8997_platform_data {
 	struct max8997_regulator_data	*regulators;
@@ -208,6 +214,7 @@ struct max8997_platform_data {
 	bool				buck_ramp_en;
 	int				buck_ramp_delay;
 	int				flash_cntl_val;
+	int				mr_debounce_time;
 	struct max8997_power_data	*power;
 	struct max8997_muic_data	*muic;
 #ifdef CONFIG_VIBETONZ

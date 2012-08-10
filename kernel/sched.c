@@ -629,18 +629,14 @@ static inline struct task_group *task_group(struct task_struct *p)
 /* Change a task's cfs_rq and parent entity if it moves across CPUs/groups */
 static inline void set_task_rq(struct task_struct *p, unsigned int cpu)
 {
-#if defined(CONFIG_FAIR_GROUP_SCHED) || defined(CONFIG_RT_GROUP_SCHED)
-  struct task_group *tg = task_group(p);
-#endif
-
 #ifdef CONFIG_FAIR_GROUP_SCHED
-	p->se.cfs_rq = tg->cfs_rq[cpu];
-	p->se.parent = tg->se[cpu];
+	p->se.cfs_rq = task_group(p)->cfs_rq[cpu];
+	p->se.parent = task_group(p)->se[cpu];
 #endif
 
 #ifdef CONFIG_RT_GROUP_SCHED
-	p->rt.rt_rq  = tg->rt_rq[cpu];
-	p->rt.parent = tg->rt_se[cpu];
+	p->rt.rt_rq  = task_group(p)->rt_rq[cpu];
+	p->rt.parent = task_group(p)->rt_se[cpu];
 #endif
 }
 
@@ -4305,7 +4301,7 @@ need_resched:
 	} else
 		raw_spin_unlock_irq(&rq->lock);
 
-	sec_debug_task_sched_log(cpu, rq->curr);
+	sec_debug_task_log(cpu, rq->curr);
 	post_schedule(rq);
 
 	preempt_enable_no_resched();
@@ -7236,7 +7232,7 @@ int sched_domain_level_max;
 static int __init setup_relax_domain_level(char *str)
 {
 	if (kstrtoint(str, 0, &default_relax_domain_level))
-	  pr_warn("Unable to set relax_domain_level\n");
+		pr_warn("Unable to set relax_domain_level\n");
 
 	return 1;
 }

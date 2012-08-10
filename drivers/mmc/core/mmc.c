@@ -28,7 +28,9 @@
 #define MMC_RETRY_READ_EXT_CSD
 #else
 /* For debugging about ext_csd register value */
+#if 0
 #define MMC_CHECK_EXT_CSD
+#endif
 #endif
 #endif
 
@@ -105,7 +107,6 @@ static int mmc_decode_cid(struct mmc_card *card)
 		card->cid.prod_name[3]	= UNSTUFF_BITS(resp, 72, 8);
 		card->cid.prod_name[4]	= UNSTUFF_BITS(resp, 64, 8);
 		card->cid.prod_name[5]	= UNSTUFF_BITS(resp, 56, 8);
-		card->cid.fwrev		= UNSTUFF_BITS(resp, 48, 8);
 		card->cid.serial	= UNSTUFF_BITS(resp, 16, 32);
 		card->cid.month		= UNSTUFF_BITS(resp, 12, 4);
 		card->cid.year		= UNSTUFF_BITS(resp, 8, 4) + 1997;
@@ -209,15 +210,6 @@ static void mmc_error_ext_csd(struct mmc_card *card, u8 *ext_csd,
 		}
 
 		memcpy(ext_csd_backup, ext_csd, 512);
-#if 0	/* Just checking */
-#define EXT_CSD_REV			192	/* RO */
-#define EXT_CSD_STRUCTURE		194	/* RO */
-#define EXT_CSD_CARD_TYPE		196	/* RO */
-#endif
-		pr_err("[TEST] eMMC check : %d, %d, %d.\n",
-				ext_csd_backup[EXT_CSD_REV],
-				ext_csd_backup[EXT_CSD_STRUCTURE],
-				ext_csd_backup[EXT_CSD_CARD_TYPE]);
 	} else {
 		ext_csd_new = kmalloc(512, GFP_KERNEL);
 		if (!ext_csd_new) {
@@ -226,12 +218,12 @@ static void mmc_error_ext_csd(struct mmc_card *card, u8 *ext_csd,
 		} else {
 			err = mmc_send_ext_csd(card, ext_csd_new);
 			if (err)
-				pr_err("[TEST] Fail to get new EXT_CSD.\n");
+				pr_err("Fail to get new EXT_CSD.\n");
 			else
 				available_new = 1;
 		}
-		pr_err("[TEST] %s: starting diff ext_csd.\n", __func__);
-		pr_err("[TEST] %s: error on slice %d: backup=%d, now=%d,"
+		pr_err("%s: starting diff ext_csd.\n", __func__);
+		pr_err("%s: error on slice %d: backup=%d, now=%d,"
 				"new=%d.\n",
 				__func__, slice,
 				ext_csd_backup[slice], ext_csd[slice],
@@ -385,62 +377,104 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			mmc_card_set_blockaddr(card);
 	}
 	card->ext_csd.raw_card_type = ext_csd[EXT_CSD_CARD_TYPE];
-	switch (ext_csd[EXT_CSD_CARD_TYPE] & EXT_CSD_CARD_TYPE_MASK) {
-	case EXT_CSD_CARD_TYPE_SDR_ALL:
-	case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_1_8V:
-	case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_1_2V:
-	case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_52:
-		card->ext_csd.hs_max_dtr = 200000000;
-		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_200;
-		break;
-	case EXT_CSD_CARD_TYPE_SDR_1_2V_ALL:
-	case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_1_8V:
-	case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_1_2V:
-	case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_52:
-		card->ext_csd.hs_max_dtr = 200000000;
-		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_1_2V;
-		break;
-	case EXT_CSD_CARD_TYPE_SDR_1_8V_ALL:
-	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_1_8V:
-	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_1_2V:
-	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_52:
-		card->ext_csd.hs_max_dtr = 200000000;
-		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_1_8V;
-		break;
-	case EXT_CSD_CARD_TYPE_DDR_52 | EXT_CSD_CARD_TYPE_52 |
-	     EXT_CSD_CARD_TYPE_26:
-		card->ext_csd.hs_max_dtr = 52000000;
-		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_52;
-		break;
-	case EXT_CSD_CARD_TYPE_DDR_1_2V | EXT_CSD_CARD_TYPE_52 |
-	     EXT_CSD_CARD_TYPE_26:
-		card->ext_csd.hs_max_dtr = 52000000;
-		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_1_2V;
-		break;
-	case EXT_CSD_CARD_TYPE_DDR_1_8V | EXT_CSD_CARD_TYPE_52 |
-	     EXT_CSD_CARD_TYPE_26:
-		card->ext_csd.hs_max_dtr = 52000000;
-		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_1_8V;
-		break;
-	case EXT_CSD_CARD_TYPE_52 | EXT_CSD_CARD_TYPE_26:
-		card->ext_csd.hs_max_dtr = 52000000;
-		break;
-	case EXT_CSD_CARD_TYPE_26:
-		card->ext_csd.hs_max_dtr = 26000000;
-		break;
-	default:
+	if (card->host->caps2 & MMC_CAP2_HS200) {
+		switch (ext_csd[EXT_CSD_CARD_TYPE] & EXT_CSD_CARD_TYPE_MASK) {
+		case EXT_CSD_CARD_TYPE_SDR_ALL:
+		case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_1_8V:
+		case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_1_2V:
+		case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_52:
+			card->ext_csd.hs_max_dtr = 200000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_200;
+			break;
+		case EXT_CSD_CARD_TYPE_SDR_1_2V_ALL:
+		case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_1_8V:
+		case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_1_2V:
+		case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_52:
+			card->ext_csd.hs_max_dtr = 200000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_1_2V;
+			break;
+		case EXT_CSD_CARD_TYPE_SDR_1_8V_ALL:
+		case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_1_8V:
+		case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_1_2V:
+		case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_52:
+			card->ext_csd.hs_max_dtr = 200000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_1_8V;
+			break;
+		case EXT_CSD_CARD_TYPE_DDR_52 | EXT_CSD_CARD_TYPE_52 |
+		     EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 52000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_52;
+			break;
+		case EXT_CSD_CARD_TYPE_DDR_1_2V | EXT_CSD_CARD_TYPE_52 |
+		     EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 52000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_1_2V;
+			break;
+		case EXT_CSD_CARD_TYPE_DDR_1_8V | EXT_CSD_CARD_TYPE_52 |
+		     EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 52000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_1_8V;
+			break;
+		case EXT_CSD_CARD_TYPE_52 | EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 52000000;
+			break;
+		case EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 26000000;
+			break;
+		default:
 #if defined(MMC_CHECK_EXT_CSD)
-		/* For debugging about ext_csd register value */
-		mmc_error_ext_csd(card, ext_csd, 0, EXT_CSD_CARD_TYPE);
+			/* For debugging about ext_csd register value */
+			mmc_error_ext_csd(card, ext_csd, 0, EXT_CSD_CARD_TYPE);
 #endif
-		/* MMC v4 spec says this cannot happen */
-		printk(KERN_WARNING "%s: card is mmc v4 but doesn't "
-			"support any high-speed modes.\n",
-			mmc_hostname(card->host));
+			/* MMC v4 spec says this cannot happen */
+			printk(KERN_WARNING "%s: card is mmc v4 but doesn't "
+					"support any high-speed modes.\n",
+					mmc_hostname(card->host));
 #if defined(MMC_RETRY_READ_EXT_CSD)
-		err = -EINVAL;
-		goto out;
+			err = -EINVAL;
+			goto out;
 #endif
+		}
+	} else {
+		pr_debug("%s: Ignore device type HS200.\n",
+				mmc_hostname(card->host));
+		switch (ext_csd[EXT_CSD_CARD_TYPE] &
+				EXT_CSD_CARD_TYPE_NO_HS200_MASK) {
+		case EXT_CSD_CARD_TYPE_DDR_52 | EXT_CSD_CARD_TYPE_52 |
+		     EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 52000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_52;
+			break;
+		case EXT_CSD_CARD_TYPE_DDR_1_2V | EXT_CSD_CARD_TYPE_52 |
+		     EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 52000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_1_2V;
+			break;
+		case EXT_CSD_CARD_TYPE_DDR_1_8V | EXT_CSD_CARD_TYPE_52 |
+		     EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 52000000;
+			card->ext_csd.card_type = EXT_CSD_CARD_TYPE_DDR_1_8V;
+			break;
+		case EXT_CSD_CARD_TYPE_52 | EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 52000000;
+			break;
+		case EXT_CSD_CARD_TYPE_26:
+			card->ext_csd.hs_max_dtr = 26000000;
+			break;
+		default:
+#if defined(MMC_CHECK_EXT_CSD)
+			/* For debugging about ext_csd register value */
+			mmc_error_ext_csd(card, ext_csd, 0, EXT_CSD_CARD_TYPE);
+#endif
+			/* MMC v4 spec says this cannot happen */
+			printk(KERN_WARNING "%s: card is mmc v4 but doesn't "
+					"support any high-speed modes.\n",
+					mmc_hostname(card->host));
+#if defined(MMC_RETRY_READ_EXT_CSD)
+			err = -EINVAL;
+			goto out;
+#endif
+		}
 	}
 
 	card->ext_csd.raw_s_a_timeout = ext_csd[EXT_CSD_S_A_TIMEOUT];
@@ -537,6 +571,11 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	if (card->ext_csd.rev >= 5) {
+		/* enable discard feature if emmc is 4.41+ */
+		if ((ext_csd[EXT_CSD_VENDOR_SPECIFIC_FIELD + 0] & 0x1) &&
+			(card->cid.manfid == 0x15))
+			card->ext_csd.feature_support |= MMC_DISCARD_FEATURE;
+
 		/* check whether the eMMC card supports HPI */
 		if (ext_csd[EXT_CSD_HPI_FEATURES] & 0x1) {
 			card->ext_csd.hpi = 1;
@@ -697,27 +736,6 @@ static const struct attribute_group *mmc_attr_groups[] = {
 
 static struct device_type mmc_type = {
 	.groups = mmc_attr_groups,
-};
-
-static const struct mmc_fixup mmc_fixups[] = {
-	/*
-	 * There is a bug in some Samsung emmc chips where the wear leveling
-	 * code can insert 32 Kbytes of zeros into the storage.  We can patch
-	 * the firmware in such chips each time they are powered on to prevent
-	 * the bug from occurring.  Only apply this patch to a particular
-	 * revision of the firmware of the specified chips.  Date doesn't
-	 * matter, so include all possible dates in min and max fields.
-	 */
-	MMC_FIXUP_REV("VYL00M", 0x15, CID_OEMID_ANY,
-		      cid_rev(0, 0x25, 1997, 1), cid_rev(0, 0x25, 2012, 12),
-		      add_quirk_mmc, MMC_QUIRK_SAMSUNG_WL_PATCH),
-	MMC_FIXUP_REV("KYL00M", 0x15, CID_OEMID_ANY,
-		      cid_rev(0, 0x25, 1997, 1), cid_rev(0, 0x25, 2012, 12),
-		      add_quirk_mmc, MMC_QUIRK_SAMSUNG_WL_PATCH),
-	MMC_FIXUP_REV("MAG4FA", 0x15, CID_OEMID_ANY,
-		      cid_rev(0, 0x25, 1997, 1), cid_rev(0, 0x25, 2012, 12),
-		      add_quirk_mmc, MMC_QUIRK_SAMSUNG_WL_PATCH),
-	END_FIXUP
 };
 
 /*
@@ -971,10 +989,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_decode_cid(card);
 		if (err)
 			goto free_card;
-		/* Detect on first access quirky cards that need help when
-		 * powered-on
-		 */
-		mmc_fixup_device(card, mmc_fixups);
 	}
 
 	/*
@@ -1378,14 +1392,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		host->card = card;
 
 	mmc_free_ext_csd(ext_csd);
-
-	/*
-	 * Patch the firmware in certain Samsung emmc chips to fix a
-	 * wear leveling bug.
-	 */
-	if (card->quirks & MMC_QUIRK_SAMSUNG_WL_PATCH)
-		mmc_fixup_samsung_fw(card);
-
 	return 0;
 
 free_card:

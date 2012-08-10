@@ -199,7 +199,7 @@ static void xmm_gpio_revers_bias_clear(void)
 	gpio_direction_output(umts_modem_data.gpio_cp_dump_int, 0);
 
 	if (umts_modem_data.gpio_sim_detect)
-	  gpio_direction_output(umts_modem_data.gpio_sim_detect, 0);
+		gpio_direction_output(umts_modem_data.gpio_sim_detect, 0);
 
 	msleep(20);
 }
@@ -215,7 +215,7 @@ static void xmm_gpio_revers_bias_restore(void)
 	s3c_gpio_cfgpin(gpio_link_hostwake, S3C_GPIO_SFN(0xF));
 	s3c_gpio_setpull(gpio_link_hostwake, S3C_GPIO_PULL_NONE);
 	irq_set_irq_type(gpio_to_irq(gpio_link_hostwake),
-	    IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING);
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING);
 	enable_irq_wake(gpio_to_irq(gpio_link_hostwake));
 
 	gpio_direction_input(gpio_cp_dump_int);
@@ -230,12 +230,12 @@ static void xmm_gpio_revers_bias_restore(void)
 	/* gpio_direction_input(mc->gpio_suspend_request); */
 
 	if (umts_modem_data.gpio_sim_detect) {
-	  gpio_direction_output(gpio_sim_detect, 0);
-	  s3c_gpio_cfgpin(gpio_sim_detect, S3C_GPIO_SFN(0xF));
-	  s3c_gpio_setpull(gpio_sim_detect, S3C_GPIO_PULL_NONE);
-	  irq_set_irq_type(gpio_to_irq(gpio_sim_detect),
-	      IRQ_TYPE_EDGE_BOTH);
-	  enable_irq_wake(gpio_to_irq(gpio_sim_detect));
+		gpio_direction_output(gpio_sim_detect, 0);
+		s3c_gpio_cfgpin(gpio_sim_detect, S3C_GPIO_SFN(0xF));
+		s3c_gpio_setpull(gpio_sim_detect, S3C_GPIO_PULL_NONE);
+		irq_set_irq_type(gpio_to_irq(gpio_sim_detect),
+				IRQ_TYPE_EDGE_BOTH);
+		enable_irq_wake(gpio_to_irq(gpio_sim_detect));
 	}
 }
 
@@ -260,8 +260,8 @@ void set_host_states(struct platform_device *pdev, int type)
 	int val = gpio_get_value(umts_modem_data.gpio_cp_reset);
 
 	if (!val) {
-	  pr_info("CP not ready, Active State low\n");
-	  return;
+		pr_info("CP not ready, Active State low\n");
+		return;
 	}
 
 	if (active_ctl.gpio_initialized) {
@@ -429,16 +429,16 @@ static void umts_modem_cfg_gpio(void)
 							IRQ_TYPE_LEVEL_HIGH);
 
 	if (gpio_sim_detect) {
-	  err = gpio_request(gpio_sim_detect, "SIM_DETECT");
-	  if (err)
-           printk(KERN_ERR "fail to request gpio %s: %d\n",
-              "SIM_DETECT", err);
+		err = gpio_request(gpio_sim_detect, "SIM_DETECT");
+		if (err)
+			printk(KERN_ERR "fail to request gpio %s: %d\n",
+				"SIM_DETECT", err);
 
-	  /* gpio_direction_input(gpio_sim_detect); */
-	  s3c_gpio_cfgpin(gpio_sim_detect, S3C_GPIO_SFN(0xF));
-	  s3c_gpio_setpull(gpio_sim_detect, S3C_GPIO_PULL_NONE);
-	  irq_set_irq_type(gpio_to_irq(gpio_sim_detect),
-	            IRQ_TYPE_EDGE_BOTH);
+		/* gpio_direction_input(gpio_sim_detect); */
+		s3c_gpio_cfgpin(gpio_sim_detect, S3C_GPIO_SFN(0xF));
+		s3c_gpio_setpull(gpio_sim_detect, S3C_GPIO_PULL_NONE);
+		irq_set_irq_type(gpio_to_irq(gpio_sim_detect),
+							IRQ_TYPE_EDGE_BOTH);
 	}
 
 	printk(KERN_INFO "umts_modem_cfg_gpio done\n");

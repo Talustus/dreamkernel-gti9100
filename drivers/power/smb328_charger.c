@@ -86,7 +86,7 @@ static int smb328_get_charging_status(struct i2c_client *client)
 		__func__, data_b);
 	smb328_i2c_read(chg->client,
 		SMB328A_BATTERY_CHARGING_STATUS_C, &data_c);
-	dev_info(&client->dev, "%s : charging status C(0x%02x)\n",
+	dev_dbg(&client->dev, "%s : charging status C(0x%02x)\n",
 		__func__, data_c);
 	/* check for safety timer in USB charging */
 	/* If safety timer is activated in USB charging, reset charger */

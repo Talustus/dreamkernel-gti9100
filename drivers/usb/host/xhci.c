@@ -507,7 +507,26 @@ int xhci_run(struct usb_hcd *hcd)
 
 	ret = xhci_try_enable_msi(hcd);
 	if (ret)
-		return ret;
+		/* fall back to msi*/
+		ret = xhci_setup_msi(xhci);
+
+	if (ret) {
+legacy_irq:
+		if (!pdev->irq) {
+			xhci_err(xhci, "No msi-x/msi found and "
+					"no IRQ in BIOS\n");
+			return -EINVAL;
+		}
+		/* fall back to legacy interrupt*/
+		ret = request_irq(pdev->irq, &usb_hcd_irq, IRQF_SHARED,
+					hcd->irq_descr, hcd);
+		if (ret) {
+			xhci_err(xhci, "request interrupt %d failed\n",
+					pdev->irq);
+			return ret;
+		}
+		hcd->irq = pdev->irq;
+	}
 
 #ifdef CONFIG_USB_XHCI_HCD_DEBUGGING
 	init_timer(&xhci->event_ring_timer);

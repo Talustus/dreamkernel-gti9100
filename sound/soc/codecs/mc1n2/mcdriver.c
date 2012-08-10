@@ -803,7 +803,7 @@ static	SINT32	get_path
 	McResCtrl_GetPathInfoVirtual(psPathInfo);
 
 #ifdef CONFIG_SND_SOC_MC1N2_MIC_ADC_SWAP
-    swap_mic_adc_paths(psPathInfo);
+    	swap_mic_adc_paths(psPathInfo);
 #endif
 
 	return MCDRV_SUCCESS;
@@ -852,7 +852,7 @@ static	SINT32	set_path
 	}
 
 #ifdef CONFIG_SND_SOC_MC1N2_MIC_ADC_SWAP
-    swap_mic_adc_paths(psPathInfo);
+    	swap_mic_adc_paths(psPathInfo);
 #endif
 
 	McResCtrl_SetPathInfo(psPathInfo);

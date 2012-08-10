@@ -959,7 +959,7 @@ static const struct driver_info sierra_net_info_direct_ip = {
 	.status = sierra_net_status,
 	.rx_fixup = sierra_net_rx_fixup,
 	.tx_fixup = sierra_net_tx_fixup,
-	.data = (unsigned long)&sierra_net_info_data_68A3,
+	.data = (unsigned long)&sierra_net_info_data_direct_ip,
 };
 
 static const struct usb_device_id products[] = {

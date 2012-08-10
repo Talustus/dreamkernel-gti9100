@@ -102,6 +102,11 @@ find $INITRAMFS_TMP -name .git -exec rm -rvf {} \;
 find $INITRAMFS_TMP -name EMPTY_DIRECTORY -exec rm -rvf {} \;
 rm -rvf $INITRAMFS_TMP/.hg
 
+## Remove Audio Library's for SGH-I777 Devices
+## EXPERIMENTAL !!!!
+## This fix is not implemented right now ...
+rm -fv $INITRAMFS_TMP/res/misc/libaudio.tar.xz
+
 # copy modules into initramfs
 #
 echo -e "${TXTGRN}Copying Modules to initramfs: ${INITRAMFS_TMP}/lib/modules${TXTCLR}"

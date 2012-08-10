@@ -245,7 +245,7 @@ rom_feature_set_sysctl(struct ctl_table *table, int write,
 		if( (rom_feature_set & 0x10) == 0x10)
 		{
 			rom_feature_set = rom_feature_set_save;
-			u1_gps_ntt_init();
+			//u1_gps_ntt_init();
 			return 0;
 		}
 		rom_feature_set_save = rom_feature_set;
@@ -2319,12 +2319,12 @@ static int __do_proc_dointvec(void *tbl_data, struct ctl_table *table,
 	unsigned long page = 0;
 	size_t left;
 	char *kbuf;
-
+	
 	if (!tbl_data || !table->maxlen || !*lenp || (*ppos && !write)) {
 		*lenp = 0;
 		return 0;
 	}
-
+	
 	i = (int *) tbl_data;
 	vleft = table->maxlen / sizeof(*i);
 	left = *lenp;

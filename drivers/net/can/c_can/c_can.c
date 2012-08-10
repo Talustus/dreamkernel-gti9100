@@ -709,7 +709,7 @@ static void c_can_do_tx(struct net_device *dev)
 			stats->tx_packets++;
 			c_can_inval_msg_object(dev, 0, msg_obj_no);
 		} else {
-		  break;
+			break;
 		}
 	}
 
@@ -1071,7 +1071,6 @@ static int c_can_open(struct net_device *dev)
 	/* start the c_can controller */
 	c_can_start(dev);
 
-	napi_enable(&priv->napi);
 	netif_start_queue(dev);
 
 	return 0;

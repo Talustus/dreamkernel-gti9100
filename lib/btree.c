@@ -320,7 +320,7 @@ void *btree_get_prev(struct btree_head *head, struct btree_geo *geo,
 	if (head->height == 0)
 		return NULL;
 	longcpy(key, __key, geo->keylen);
-	retry:
+retry:
 	dec_key(geo, key);
 
 	node = head->node;

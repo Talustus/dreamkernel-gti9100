@@ -64,7 +64,7 @@ int tvout_dbg_flag;
 
 
 #ifdef CONFIG_HDMI_EARJACK_MUTE
-int hdmi_audio_ext;
+bool hdmi_audio_ext;
 
 /* To provide an interface fo Audio path control */
 static ssize_t hdmi_set_audio_read(struct device *dev,
@@ -80,16 +80,18 @@ static ssize_t hdmi_set_audio_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
 	char *after;
-	unsigned long value = !strncmp(buf, "1", 1) ? true : false;
+	bool value = !strncmp(buf, "1", 1) ? true : false;
 
-	printk(KERN_ERR "[HDMI] Change AUDIO PATH: %ld\n", value);
+	printk(KERN_ERR "[HDMI] Change AUDIO PATH: %d\n", (int)value);
 
-	if (value) {
-		s5p_hdmi_ctrl_set_audio(1);
-		hdmi_audio_ext = 0;
-	} else {
-		s5p_hdmi_ctrl_set_audio(0);
-		hdmi_audio_ext = 1;
+	if (value == hdmi_audio_ext) {
+		if (value) {
+			hdmi_audio_ext = 0;
+			s5p_hdmi_ctrl_set_audio(1);
+		} else {
+			hdmi_audio_ext = 1;
+			s5p_hdmi_ctrl_set_audio(0);
+		}
 	}
 
 	return size;
@@ -291,7 +293,7 @@ static int __devinit s5p_tvout_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_TVOUT_DEBUG
 	struct class *sec_tvout;
-	tvout_dbg_flag = 0;
+	tvout_dbg_flag = 1 << DBG_FLAG_HPD;
 #endif
 	s5p_tvout_pm_runtime_enable(&pdev->dev);
 
@@ -303,7 +305,7 @@ static int __devinit s5p_tvout_probe(struct platform_device *pdev)
 		goto err;
 #elif defined(CONFIG_S5P_SYSMMU_TV) && defined(CONFIG_S5P_VMEM)
 	s5p_sysmmu_enable(&pdev->dev);
-	printk("sysmmu on\n");
+	printk(KERN_WARNING "sysmmu on\n");
 	s5p_sysmmu_set_tablebase_pgd(&pdev->dev, __pa(swapper_pg_dir));
 #endif
 	if (s5p_tvout_clk_get(pdev, &s5ptv_status) < 0)
@@ -315,13 +317,13 @@ static int __devinit s5p_tvout_probe(struct platform_device *pdev)
 	/* s5p_mixer_ctrl_constructor must be called
 	   before s5p_tvif_ctrl_constructor */
 	if (s5p_mixer_ctrl_constructor(pdev) < 0)
-		goto err;
+		goto err_mixer;
 
 	if (s5p_tvif_ctrl_constructor(pdev) < 0)
-		goto err;
+		goto err_tvif;
 
 	if (s5p_tvout_v4l2_constructor(pdev) < 0)
-		goto err;
+		goto err_v4l2;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	spin_lock_init(&s5ptv_status.tvout_lock);
@@ -336,15 +338,15 @@ static int __devinit s5p_tvout_probe(struct platform_device *pdev)
 #ifndef CONFIG_USER_ALLOC_TVOUT
 	s5p_hdmi_phy_power(true);
 	if (s5p_tvif_ctrl_start(TVOUT_720P_60, TVOUT_HDMI) < 0)
-		goto err;
+		goto err_tvif_start;
 #endif
 
 	/* prepare memory */
 	if (s5p_tvout_fb_alloc_framebuffer(&pdev->dev))
-		goto err;
+		goto err_tvif_start;
 
 	if (s5p_tvout_fb_register_framebuffer(&pdev->dev))
-		goto err;
+		goto err_tvif_start;
 #endif
 	on_stop_process = false;
 	on_start_process = false;
@@ -358,12 +360,12 @@ static int __devinit s5p_tvout_probe(struct platform_device *pdev)
 		  mem_info.total_size, mem_info.free_size);
 	if (ret) {
 		tvout_err("get cma info failed\n");
-		goto err;
+		goto err_tvif_start;
 	}
 	s5ptv_vp_buff.size = mem_info.total_size;
 	if (s5ptv_vp_buff.size < S5PTV_VP_BUFF_CNT * S5PTV_VP_BUFF_SIZE) {
 		tvout_err("insufficient vp buffer size\n");
-		goto err;
+		goto err_tvif_start;
 	}
 	vp_buff_phy_addr = (unsigned int)cma_alloc
 	    (&pdev->dev, (char *)"tvout", (size_t) s5ptv_vp_buff.size,
@@ -376,7 +378,7 @@ static int __devinit s5p_tvout_probe(struct platform_device *pdev)
 	s5ptv_vp_buff.size = s5p_get_media_memsize_bank(mdev_id, 1);
 	if (s5ptv_vp_buff.size < S5PTV_VP_BUFF_CNT * S5PTV_VP_BUFF_SIZE) {
 		tvout_err("insufficient vp buffer size\n");
-		goto err;
+		goto err_tvif_start;
 	}
 #endif
 
@@ -439,6 +441,8 @@ static int __devinit s5p_tvout_probe(struct platform_device *pdev)
 		&dev_attr_hdmi_audio_set_ext) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 			dev_attr_hdmi_audio_set_ext.attr.name);
+
+	hdmi_audio_ext = false;
 #endif
 
 	return 0;
@@ -450,6 +454,14 @@ err_ioremap:
 #if defined(CONFIG_S5P_MEM_CMA)
 	cma_free(vp_buff_phy_addr);
 #endif
+err_tvif_start:
+	s5p_tvout_v4l2_destructor();
+err_v4l2:
+	s5p_tvif_ctrl_destructor();
+err_tvif:
+	s5p_mixer_ctrl_destructor();
+err_mixer:
+	s5p_vp_ctrl_destructor();
 err:
 	return -ENODEV;
 }
@@ -484,6 +496,7 @@ static void s5p_tvout_early_suspend(struct early_suspend *h)
 {
 	tvout_dbg("\n");
 	mutex_lock(&s5p_tvout_mutex);
+	s5p_mixer_ctrl_set_vsync_interrupt(false);
 	s5p_vp_ctrl_suspend();
 	s5p_mixer_ctrl_suspend();
 	s5p_tvif_ctrl_suspend();
@@ -511,6 +524,7 @@ static void s5p_tvout_late_resume(struct early_suspend *h)
 	s5p_tvif_ctrl_resume();
 	s5p_mixer_ctrl_resume();
 	s5p_vp_ctrl_resume();
+	s5p_mixer_ctrl_set_vsync_interrupt(s5p_mixer_ctrl_get_vsync_interrupt());
 	mutex_unlock(&s5p_tvout_mutex);
 
 	return;

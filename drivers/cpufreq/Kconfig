@@ -339,6 +339,9 @@ config CPU_FREQ_GOV_LAGFREE
          For details, take a look at linux/Documentation/cpu-freq.
          If in doubt, say N.
 
+config CPU_FREQ_GOV_SLP
+	tristate "'slp' cpufreq policy governor"
+
 config CPU_FREQ_DVFS_MONITOR
 	bool "dvfs monitor"
 	depends on CPU_FREQ

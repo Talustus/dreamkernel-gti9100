@@ -2069,11 +2069,11 @@ static void hugetlb_vm_op_open(struct vm_area_struct *vma)
 
 static void resv_map_put(struct vm_area_struct *vma)
 {
-  struct resv_map *reservations = vma_resv_map(vma);
+	struct resv_map *reservations = vma_resv_map(vma);
 
-  if (!reservations)
-    return;
-  kref_put(&reservations->refs, resv_map_release);
+	if (!reservations)
+		return;
+	kref_put(&reservations->refs, resv_map_release);
 }
 
 static void hugetlb_vm_op_close(struct vm_area_struct *vma)
@@ -2894,14 +2894,14 @@ int hugetlb_reserve_pages(struct inode *inode,
 	}
 
 	if (chg < 0) {
-	   ret = chg;
-	   goto out_err;
+		ret = chg;
+		goto out_err;
 	}
 
 	/* There must be enough filesystem quota for the mapping */
 	if (hugetlb_get_quota(inode->i_mapping, chg)) {
-		return -ENOSPC;
-		 goto out_err;
+		ret = -ENOSPC;
+		goto out_err;
 	}
 
 	/*
@@ -2928,10 +2928,10 @@ int hugetlb_reserve_pages(struct inode *inode,
 	if (!vma || vma->vm_flags & VM_MAYSHARE)
 		region_add(&inode->i_mapping->private_list, from, to);
 	return 0;
-	out_err:
-	  if (vma)
-	    resv_map_put(vma);
-	  return ret;
+out_err:
+	if (vma)
+		resv_map_put(vma);
+	return ret;
 }
 
 void hugetlb_unreserve_pages(struct inode *inode, long offset, long freed)

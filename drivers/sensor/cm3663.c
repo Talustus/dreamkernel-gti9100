@@ -30,17 +30,7 @@
 #include <linux/workqueue.h>
 #include <linux/uaccess.h>
 #include <linux/sensor/cm3663.h>
-#if defined(CONFIG_MACH_S2PLUS)
-#include <linux/sensor/sensors_core.h>
-#endif
 
-#if defined(CONFIG_MACH_S2PLUS)
-#include <linux/regulator/machine.h>
-#include <linux/err.h>
-#include <linux/delay.h>
-#endif
-
-#define LIGHT_BUFFER_NUM	5
 #define PROX_READ_NUM		40
 
 /* ADDSEL is LOW */
@@ -61,19 +51,9 @@ static u8 reg_defaults[8] = {
 	0x00, /* ALS_LSB: read only register */
 	0x30, /* PS_CMD: interrupt disable */
 	0x00, /* PS_DATA: read only register */
-#if defined(CONFIG_MACH_S2PLUS)
-	0x03, /* PS_THD: 3 */
-#else
 	0x0A, /* PS_THD: 10 */
-#endif
 };
 
-static const int adc_table[4] = {
-	15,
-	150,
-	1500,
-	15000,
-};
 
 enum {
 	LIGHT_ENABLED = BIT(0),
@@ -103,8 +83,6 @@ struct cm3663_data {
 	int als_index_count;
 	int irq;
 	int avg[3];
-	int light_count;
-	int light_buffer;
 	ktime_t light_poll_delay;
 	ktime_t prox_poll_delay;
 	u8 power_state;
@@ -170,25 +148,19 @@ int cm3663_i2c_write(struct cm3663_data *cm3663, u8 addr, u8 val)
 static void cm3663_light_enable(struct cm3663_data *cm3663)
 {
 	u8 tmp;
-#if defined(CONFIG_MACH_S2PLUS)
-	printk(KERN_INFO "[%s]\n", __func__);
-#endif
-	cm3663->light_count = 0;
-	cm3663->light_buffer = 0;
+	int64_t temp_time = 0;
 	cm3663_i2c_read(cm3663, REGS_ARA, &tmp);
 	cm3663_i2c_read(cm3663, REGS_ARA, &tmp);
 	cm3663_i2c_read(cm3663, REGS_ARA, &tmp);
 	cm3663_i2c_write(cm3663, REGS_INIT, reg_defaults[3]);
 	cm3663_i2c_write(cm3663, REGS_ALS_CMD, reg_defaults[1]);
-	hrtimer_start(&cm3663->light_timer, cm3663->light_poll_delay,
+	temp_time = ktime_to_ns(cm3663->light_poll_delay) + 100000000;
+	hrtimer_start(&cm3663->light_timer, ns_to_ktime(temp_time),
 						HRTIMER_MODE_REL);
 }
 
 static void cm3663_light_disable(struct cm3663_data *cm3663)
 {
-#if defined(CONFIG_MACH_S2PLUS)
-	printk(KERN_INFO "[%s]\n", __func__);
-#endif
 	cm3663_i2c_write(cm3663, REGS_ALS_CMD, 0x01);
 	hrtimer_cancel(&cm3663->light_timer);
 	cancel_work_sync(&cm3663->work_light);
@@ -359,9 +331,6 @@ static ssize_t proximity_enable_store(struct device *dev,
 	struct cm3663_data *cm3663 = dev_get_drvdata(dev);
 	bool new_value;
 	u8 tmp;
-#if defined(CONFIG_MACH_S2PLUS)
-	u8 val = 1;
-#endif
 
 	if (sysfs_streq(buf, "1"))
 		new_value = true;
@@ -382,25 +351,6 @@ static ssize_t proximity_enable_store(struct device *dev,
 		cm3663_i2c_write(cm3663, REGS_INIT, reg_defaults[3]);
 		cm3663_i2c_write(cm3663, REGS_PS_THD, reg_defaults[7]);
 		cm3663_i2c_write(cm3663, REGS_PS_CMD, reg_defaults[5]);
-
-#if defined(CONFIG_MACH_S2PLUS)
-		/* report the first value */
-		val = gpio_get_value(cm3663->i2c_client->irq);
-		if (val < 0) {
-			pr_err("%s: gpio_get_value error %d\n", __func__, val);
-			return IRQ_HANDLED;
-		}
-
-		cm3663_i2c_read(cm3663, REGS_PS_DATA, &tmp);
-		printk(KERN_INFO  "%s: proximity value = %d, val = %d\n",
-				__func__, tmp, val);
-
-		/* 0 is close, 1 is far */
-		input_report_abs(cm3663->proximity_input_dev,
-					ABS_DISTANCE, val);
-		input_sync(cm3663->proximity_input_dev);
-		wake_lock_timeout(&cm3663->prx_wake_lock, 3*HZ);
-#endif
 
 		enable_irq(cm3663->irq);
 		enable_irq_wake(cm3663->irq);
@@ -461,21 +411,12 @@ static ssize_t proximity_avg_store(struct device *dev,
 	return size;
 }
 
-#if defined(CONFIG_MACH_S2PLUS)
-static DEVICE_ATTR(prox_avg, 0644,
-		   proximity_avg_show, proximity_avg_store);
-static DEVICE_ATTR(state, 0644, proximity_state_show, NULL);
-
-static DEVICE_ATTR(lux, 0644, lightsensor_file_state_show,
-	NULL);
-#else
 static DEVICE_ATTR(proximity_avg, 0644,
 		   proximity_avg_show, proximity_avg_store);
 static DEVICE_ATTR(proximity_state, 0644, proximity_state_show, NULL);
 
 static DEVICE_ATTR(lightsensor_file_state, 0644, lightsensor_file_state_show,
 	NULL);
-#endif
 
 static DEVICE_ATTR(poll_delay, S_IRUGO | S_IWUSR | S_IWGRP,
 		   poll_delay_show, poll_delay_store);
@@ -509,33 +450,14 @@ static struct attribute_group proximity_attribute_group = {
 
 static void cm3663_work_func_light(struct work_struct *work)
 {
-	int i;
 	int als;
 	struct cm3663_data *cm3663 = container_of(work, struct cm3663_data,
 					      work_light);
 
 	als = lightsensor_get_alsvalue(cm3663);
-
-	for (i = 0; ARRAY_SIZE(adc_table); i++)
-		if (als <= adc_table[i])
-			break;
-
-	if (cm3663->light_buffer == i) {
-		if (cm3663->light_count++ == LIGHT_BUFFER_NUM) {
-#if defined(CONFIG_MACH_S2PLUS)
-			input_report_rel(cm3663->light_input_dev,
-							REL_MISC, als + 1);
-#else
-			input_report_abs(cm3663->light_input_dev,
-							ABS_MISC, als + 1);
-#endif
-			input_sync(cm3663->light_input_dev);
-			cm3663->light_count = 0;
-		}
-	} else {
-		cm3663->light_buffer = i;
-		cm3663->light_count = 0;
-	}
+	input_report_abs(cm3663->light_input_dev,
+					ABS_MISC, als + 1);
+	input_sync(cm3663->light_input_dev);
 }
 
 static void cm3663_work_func_prox(struct work_struct *work)
@@ -750,12 +672,8 @@ static int cm3663_i2c_probe(struct i2c_client *client,
 	}
 	input_set_drvdata(input_dev, cm3663);
 	input_dev->name = "light_sensor";
-#if defined(CONFIG_MACH_S2PLUS)
-	input_set_capability(input_dev, EV_REL, REL_MISC);
-#else
 	input_set_capability(input_dev, EV_ABS, ABS_MISC);
 	input_set_abs_params(input_dev, ABS_MISC, 0, 1, 0, 0);
-#endif
 
 	ret = input_register_device(input_dev);
 	if (ret < 0) {
@@ -771,43 +689,6 @@ static int cm3663_i2c_probe(struct i2c_client *client,
 		goto err_sysfs_create_group_light;
 	}
 
-#if defined(CONFIG_MACH_S2PLUS)
-	/* set sysfs for proximity sensor */
-	cm3663->proximity_dev = sensors_classdev_register("proximity_sensor");
-	if (IS_ERR(cm3663->proximity_dev)) {
-		pr_err("%s: could not create proximity_dev\n", __func__);
-		goto err_proximity_classdev_create;
-	}
-
-	if (device_create_file(cm3663->proximity_dev,
-		&dev_attr_state) < 0) {
-		pr_err("%s: could not create device file(%s)!\n", __func__,
-			dev_attr_state.attr.name);
-		goto err_proximity_device_create_file1;
-	}
-
-	if (device_create_file(cm3663->proximity_dev,
-		&dev_attr_prox_avg) < 0) {
-		pr_err("%s: could not create device file(%s)!\n", __func__,
-			dev_attr_prox_avg.attr.name);
-		goto err_proximity_device_create_file2;
-	}
-	dev_set_drvdata(cm3663->proximity_dev, cm3663);
-
-	/* set sysfs for light sensor */
-	cm3663->switch_cmd_dev = sensors_classdev_register("light_sensor");
-	if (IS_ERR(cm3663->switch_cmd_dev)) {
-		pr_err("%s: could not create switch_cmd_dev\n", __func__);
-		goto err_light_classdev_create;
-	}
-	if (device_create_file(cm3663->switch_cmd_dev,
-		&dev_attr_lux) < 0) {
-		pr_err("%s: could not create device file(%s)!\n", __func__,
-			dev_attr_lux.attr.name);
-		goto err_light_device_create_file;
-	}
-	dev_set_drvdata(cm3663->switch_cmd_dev, cm3663);
-#else
 	/* set sysfs for proximity sensor */
 	cm3663->proximity_class = class_create(THIS_MODULE, "proximity");
 	if (IS_ERR(cm3663->proximity_class)) {
@@ -858,7 +739,6 @@ static int cm3663_i2c_probe(struct i2c_client *client,
 		goto err_light_device_create_file;
 	}
 	dev_set_drvdata(cm3663->switch_cmd_dev, cm3663);
-#endif
 
     /* set initial proximity value (far) */
     input_report_abs(cm3663->proximity_input_dev, ABS_DISTANCE, 1);
@@ -867,17 +747,6 @@ static int cm3663_i2c_probe(struct i2c_client *client,
 	goto done;
 
 /* error, unwind it all */
-#if defined(CONFIG_MACH_S2PLUS)
-err_light_device_create_file:
-	sensors_classdev_unregister(cm3663->switch_cmd_dev);
-err_light_classdev_create:
-	device_remove_file(cm3663->proximity_dev, &dev_attr_prox_avg);
-err_proximity_device_create_file2:
-	device_remove_file(cm3663->proximity_dev, &dev_attr_state);
-err_proximity_device_create_file1:
-	sensors_classdev_unregister(cm3663->proximity_dev);
-err_proximity_classdev_create:
-#else
 err_light_device_create_file:
 	device_destroy(cm3663->lightsensor_class, 0);
 err_light_device_create:
@@ -891,7 +760,6 @@ err_proximity_device_create_file1:
 err_proximity_device_create:
 	class_destroy(cm3663->proximity_class);
 err_proximity_class_create:
-#endif
 	sysfs_remove_group(&input_dev->dev.kobj,
 			&light_attribute_group);
 err_sysfs_create_group_light:
@@ -939,26 +807,6 @@ static int cm3663_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct cm3663_data *cm3663 = i2c_get_clientdata(client);
 
-	/* [S2PLUS] Temporary Patch */
-#if defined(CONFIG_MACH_S2PLUS)
-	struct regulator *regulator;
-	int ret = 0;
-
-	regulator = regulator_get(NULL, "vcc_pls_2.8v");
-	if (IS_ERR(regulator)) {
-		printk(KERN_ERR
-			"vcc_pls_2.8v regulator get err\n");
-		return -1;
-	}
-	if (!regulator_is_enabled(regulator)) {
-		printk(KERN_ERR "%s: vcc_pls_2.8v is off. so ON\n",
-		__func__);
-		ret = regulator_enable(regulator);
-	}
-	regulator_put(regulator);
-	mdelay(100);
-#endif
-
 	if (cm3663->power_state & LIGHT_ENABLED)
 		cm3663_light_enable(cm3663);
 	return 0;
@@ -968,14 +816,6 @@ static int cm3663_i2c_remove(struct i2c_client *client)
 {
 	struct cm3663_data *cm3663 = i2c_get_clientdata(client);
 
-#if defined(CONFIG_MACH_S2PLUS)
-	device_remove_file(cm3663->switch_cmd_dev,
-				&dev_attr_lux);
-	sensors_classdev_unregister(cm3663->switch_cmd_dev);
-	device_remove_file(cm3663->proximity_dev, &dev_attr_prox_avg);
-	device_remove_file(cm3663->proximity_dev, &dev_attr_state);
-	sensors_classdev_unregister(cm3663->proximity_dev);
-#else
 	device_remove_file(cm3663->proximity_dev,
 				&dev_attr_proximity_avg);
 	device_remove_file(cm3663->switch_cmd_dev,
@@ -986,7 +826,6 @@ static int cm3663_i2c_remove(struct i2c_client *client)
 	device_remove_file(cm3663->proximity_dev, &dev_attr_proximity_state);
 	device_destroy(cm3663->proximity_class, 0);
 	class_destroy(cm3663->proximity_class);
-#endif
 	sysfs_remove_group(&cm3663->light_input_dev->dev.kobj,
 			   &light_attribute_group);
 	input_unregister_device(cm3663->light_input_dev);

@@ -3579,8 +3579,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
 			cleaned = (i == eop);
 
 			if (cleaned) {
-			   total_tx_packets += buffer_info->segs;
-			   total_tx_bytes += buffer_info->bytecount;
+				total_tx_packets += buffer_info->segs;
+				total_tx_bytes += buffer_info->bytecount;
 			}
 			e1000_unmap_and_free_tx_resource(adapter, buffer_info);
 			tx_desc->upper.data = 0;
