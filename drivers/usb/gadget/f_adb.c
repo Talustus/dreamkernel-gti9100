@@ -57,6 +57,9 @@ struct adb_dev {
 	int rx_done;
 };
 
+static void adb_ready_callback(void);
+static void adb_closed_callback(void);
+
 static struct usb_interface_descriptor adb_interface_desc = {
 	.bLength                = USB_DT_INTERFACE_SIZE,
 	.bDescriptorType        = USB_DT_INTERFACE,
@@ -239,7 +242,7 @@ static void adb_complete_out(struct usb_ep *ep, struct usb_request *req)
 	struct adb_dev *dev = _adb_dev;
 
 	dev->rx_done = 1;
-	if (req->status != 0)
+	if (req->status != 0 && req->status != -ECONNRESET)
 		dev->error = 1;
 
 	wake_up(&dev->read_wq);
@@ -347,7 +350,8 @@ requeue_req:
 	/* wait for a request to complete */
 	ret = wait_event_interruptible(dev->read_wq, dev->rx_done);
 	if (ret < 0) {
-		dev->error = 1;
+		if (ret != -ERESTARTSYS)
+			dev->error = 1;
 		r = ret;
 		usb_ep_dequeue(dev->ep_out, req);
 		goto done;
@@ -441,7 +445,7 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 
 static int adb_open(struct inode *ip, struct file *fp)
 {
-	printk(KERN_INFO "adb_open\n");
+	pr_info("adb_open\n");
 	if (!_adb_dev)
 		return -ENODEV;
 
@@ -453,12 +457,15 @@ static int adb_open(struct inode *ip, struct file *fp)
 	/* clear the error latch */
 	_adb_dev->error = 0;
 
+    adb_ready_callback();
+
 	return 0;
 }
 
 static int adb_release(struct inode *ip, struct file *fp)
 {
-	printk(KERN_INFO "adb_release\n");
+	pr_info("adb_release\n");
+    adb_closed_callback();
 	adb_unlock(&_adb_dev->open_excl);
 	return 0;
 }
@@ -477,9 +484,6 @@ static struct miscdevice adb_device = {
 	.name = adb_shortname,
 	.fops = &adb_fops,
 };
-
-
-
 
 static int
 adb_function_bind(struct usb_configuration *c, struct usb_function *f)
