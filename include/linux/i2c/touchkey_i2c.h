@@ -17,6 +17,11 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+/* Temp Fix NAGSM_SEL_ANDROID_MOHAMMAD_ANSARI_20111224*/
+#define CONFIG_TARGET_LOCALE_NAATT
+#endif
+
 /* Touchkey Register */
 #define KEYCODE_REG			0x00
 
