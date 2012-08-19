@@ -370,7 +370,12 @@ extern int rcu_my_thread_group_empty(void);
 			smp_wmb(); \
 		(p) = (typeof(*v) __force space *)(v); \
 	})
-
+#define rcu_assign_pointer_nonull(p, v) \
+  ({ \
+    if (!__builtin_constant_p(v)) \
+      smp_wmb(); \
+    (p) = (v); \
+  })
 
 /**
  * rcu_access_pointer() - fetch RCU pointer with no dereferencing
