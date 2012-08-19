@@ -189,7 +189,7 @@ struct mxt224_data {
 	bool median_err_flag;
 	int touch_is_pressed_arr[MAX_USING_FINGER_NUM];
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
+#if 0 /* defined(CONFIG_TARGET_LOCALE_NAATT) */
 	bool gain_change_flag;
 	int gain_ta;
 #endif
@@ -526,7 +526,7 @@ static void mxt224_ta_probe(bool ta_status)
 		ret =
 		    get_object_info(copy_data, PROCG_NOISESUPPRESSION_T48,
 				    &size_one, &obj_address);
-#ifndef CONFIG_TARGET_LOCALE_NAATT_TEMP
+		/* #ifndef CONFIG_TARGET_LOCALE_NAATT_TEMP */
 		value = calcfg_dis;
 		register_address = 2;
 		size_one = 1;
@@ -536,14 +536,14 @@ static void mxt224_ta_probe(bool ta_status)
 			 (u8) size_one, &val);
 		printk(KERN_ERR "[TSP]TA_probe MXT224E T%d Byte%d is %d\n", 48,
 		       register_address, val);
-#endif
+		/* #endif */
 		if (ta_status)
 			write_config(copy_data, PROCG_NOISESUPPRESSION_T48,
 				     copy_data->noise_suppression_cfg_ta);
 		else
 			write_config(copy_data, PROCG_NOISESUPPRESSION_T48,
 				     copy_data->noise_suppression_cfg);
-#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+#if 0 /* defined(CONFIG_TARGET_LOCALE_NAATT_TEMP) */
 		if ((ta_status) && (copy_data->gain_change_flag == 1)) {
 			value = copy_data->blen_charging_e;
 			write_mem(copy_data, obj_address + 34, size_one,
@@ -588,7 +588,7 @@ static void mxt224_ta_probe(bool ta_status)
 				 &val);
 		}
 #endif
-#ifndef CONFIG_TARGET_LOCALE_NAATT_TEMP
+		/* #ifndef CONFIG_TARGET_LOCALE_NAATT_TEMP */
 		value = calcfg_en;
 		write_mem(copy_data, obj_address + (u16) register_address,
 			  size_one, &value);
@@ -596,7 +596,7 @@ static void mxt224_ta_probe(bool ta_status)
 			 (u8) size_one, &val);
 		printk(KERN_ERR "[TSP]TA_probe MXT224E T%d Byte%d is %d\n", 48,
 		       register_address, val);
-#endif
+		/* #endif */
 	} else {
 		if (copy_data->freq_table.fherr_setting >= 1) {
 			ret = get_object_info(copy_data, GEN_POWERCONFIG_T7,
@@ -1528,7 +1528,7 @@ static void median_err_setting(void)
 		switch (copy_data->gErrCondition) {
 		case ERR_RTN_CONDITION_T9:
 			{
-#ifdef CONFIG_TARGET_LOCALE_NAATT_TEMP
+#if 0 /* def CONFIG_TARGET_LOCALE_NAATT_TEMP */
 				ret =
 				get_object_info(copy_data,
 				PROCG_NOISESUPPRESSION_T48,
@@ -2426,7 +2426,7 @@ static void mxt224_optical_gain(uint16_t dbg_mode)
 			    ((uint16_t) data_buffer[1] << 8) +
 			    (uint16_t) data_buffer[0];
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+#if 0 /* defined(CONFIG_TARGET_LOCALE_NAATT_TEMP) */
 			if (copy_data->family_id == 0x81) {
 				if (qt_refrence != 0)
 					qt_refrence = qt_refrence - 16384;
@@ -2454,7 +2454,7 @@ static void mxt224_optical_gain(uint16_t dbg_mode)
 		msleep(20);
 	}
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+#if 0 /* defined(CONFIG_TARGET_LOCALE_NAATT_TEMP) */
 	if (reference_over)
 		copy_data->gain_ta = 0;
 #else
@@ -3297,7 +3297,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 	u8 user_info_value;
 	u16 obj_address = 0;
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+#if 0 /* defined(CONFIG_TARGET_LOCALE_NAATT_TEMP) */
 	int gain_ta_pre;
 #endif
 
@@ -3709,7 +3709,7 @@ static int __devinit mxt224_probe(struct i2c_client *client,
 #endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-#if defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+#if defined(CONFIG_TARGET_LOCALE_NA) /* defined(CONFIG_TARGET_LOCALE_NAATT_TEMP) */
 	data->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
 #elif defined(CONFIG_TARGET_LOCALE_KOR)
 	data->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 3;

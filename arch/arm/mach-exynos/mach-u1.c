@@ -4881,7 +4881,7 @@ static const u8 *mxt224_config[] = {
 /*
   Configuration for MXT224-E
 */
-#ifdef CONFIG_TARGET_LOCALE_NAATT_TEMP
+#if 0 /* def CONFIG_TARGET_LOCALE_NAATT_TEMP */
 #define MXT224E_THRESHOLD_BATT		50
 #define MXT224E_THRESHOLD_CHRG		40
 #define MXT224E_T48_THRESHOLD_BATT		33
@@ -4925,7 +4925,7 @@ static const u8 *mxt224_config[] = {
 #define MXT224E_NEXTTCHDI_NORMAL		0
 #endif
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
+#if 0 /* defined(CONFIG_TARGET_LOCALE_NAATT_TEMP) */
 static u8 t7_config_e[] = { GEN_POWERCONFIG_T7,
 	48, 255, 25
 };
