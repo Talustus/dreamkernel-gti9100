@@ -4541,6 +4541,7 @@ struct gpio_keys_button u1_buttons[] = {
 		.isr_hook = sec_debug_check_crash_key,
 		.debounce_interval = 10,
 	},			/* power key */
+#if !defined(CONFIG_TARGET_LOCALE_NAATT_TEMP)
 	{
 		.code = KEY_HOME,
 		.gpio = GPIO_OK_KEY,
@@ -4549,6 +4550,7 @@ struct gpio_keys_button u1_buttons[] = {
 		.wakeup = 1,
 		.debounce_interval = 10,
 	},			/* ok key */
+#endif
 };
 
 struct gpio_keys_platform_data u1_keypad_platform_data = {
