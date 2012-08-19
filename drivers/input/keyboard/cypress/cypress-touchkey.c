@@ -308,7 +308,7 @@ static int touchkey_autocalibration(struct touchkey_i2c *tkey_i2c)
 }
 #endif
 
-#ifdef CONFIG_TARGET_LOCALE_NAATT
+#if 0 /* CONFIG_TARGET_LOCALE_NAATT */
 static ssize_t set_touchkey_autocal_testmode(struct device *dev,
 					     struct device_attribute *attr,
 					     const char *buf, size_t size)
@@ -1594,7 +1594,7 @@ static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   brightness_control);
 #endif
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
+#if 0 /* #if defined(CONFIG_TARGET_LOCALE_NAATT) */
 static DEVICE_ATTR(touchkey_autocal_start, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
 		   set_touchkey_autocal_testmode);
 #endif
@@ -1633,7 +1633,7 @@ static struct attribute *touchkey_attributes[] = {
 #ifdef LED_LDO_WITH_REGULATOR
 	&dev_attr_touchkey_brightness.attr,
 #endif
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
+#if 0/* defined(CONFIG_TARGET_LOCALE_NAATT) */
 	&dev_attr_touchkey_autocal_start.attr,
 #endif
 #if defined(TK_HAS_AUTOCAL)
