@@ -148,6 +148,12 @@ config CPU_FREQ_DEFAULT_GOV_LAGFREE
          governor. If unsure have a look at the help section of the
          driver. Fallback governor will be the performance governor.
 
+config CPU_FREQ_DEFAULT_GOV_SCARY
+	bool "scary"
+	select CPU_FREQ_GOV_SCARY
+	help
+	  Use the CPUFreq governor 'scary' as default.
+
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -338,6 +344,12 @@ config CPU_FREQ_GOV_LAGFREE
          module will be called cpufreq_lagfree.
          For details, take a look at linux/Documentation/cpu-freq.
          If in doubt, say N.
+
+config CPU_FREQ_GOV_SCARY
+	tristate "'scary' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'scary' - a governor for cabbages
 
 config CPU_FREQ_GOV_SLP
 	tristate "'slp' cpufreq policy governor"
