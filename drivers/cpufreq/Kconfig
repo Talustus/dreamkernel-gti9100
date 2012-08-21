@@ -154,6 +154,12 @@ config CPU_FREQ_DEFAULT_GOV_SCARY
 	help
 	  Use the CPUFreq governor 'scary' as default.
 
+config CPU_FREQ_DEFAULT_GOV_SLEEPY
+	bool "sleepy"
+	select CPU_FREQ_GOV_SCARY
+	help
+	  Use the CPUFreq governor 'sleepy' as default.
+
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -350,6 +356,13 @@ config CPU_FREQ_GOV_SCARY
 	depends on CPU_FREQ
 	help
 	  'scary' - a governor for cabbages
+
+config CPU_FREQ_GOV_SLEEPY
+	tristate "'sleepy' cpufreq governor"
+	depends on CPU_FREQ
+	help
+          'solo' - an "ondemandx" based tweaked, smart and smooth optimized governor!
+          'sleepy' - an "ondemandx" based tweaked, smart and smooth optimized governor!
 
 config CPU_FREQ_GOV_SLP
 	tristate "'slp' cpufreq policy governor"
