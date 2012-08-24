@@ -31,7 +31,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-v3.3.1TWRP"
+KRNRLS="DreamKernel-v3.3.2TWRP"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
