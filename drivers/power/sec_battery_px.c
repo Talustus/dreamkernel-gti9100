@@ -46,8 +46,6 @@
 #define MAX_CUT_OFF_VOL	3500
 
 /* SIOP */
-#define CHARGING_CURRENT_HIGH_LOW_STANDARD	450
-#define CHARGING_CURRENT_USB			500
 #define SIOP_ACTIVE_CHARGE_CURRENT		450
 #define SIOP_DEACTIVE_CHARGE_CURRENT		1500
 
@@ -249,7 +247,7 @@ static void lpm_mode_check(struct battery_data *battery)
 
 #if defined(P4_CHARGING_FEATURE_01) || defined(P8_CHARGING_FEATURE_01)
 #define CHARGING_CURRENT_HIGH	1500
-#define CHARGING_CURRENT_LOW	CHARGING_CURRENT_USB
+#define CHARGING_CURRENT_LOW	500
 static void sec_set_charging(struct battery_data *battery, int charger_type)
 {
 	switch (charger_type) {
@@ -766,24 +764,20 @@ static void disable_internal_charger(void)
 static void sec_set_chg_current(struct battery_data *battery, int set_current)
 {
 #if defined(P8_CHARGING_FEATURE_01)
-	if ((set_current > CHARGING_CURRENT_HIGH_LOW_STANDARD) && \
+	if ((set_current > SIOP_ACTIVE_CHARGE_CURRENT) && \
 			(battery->current_cable_status == CHARGER_AC))
 		sec_set_charging(battery, CHARGER_AC);
-	else if (battery->current_cable_status == CHARGER_MISC)
+	else if (battery->current_cable_status == CHARGER_AC)
 		sec_set_charging(battery, CHARGER_MISC);
 	else
-		sec_set_charging(battery, CHARGER_USB);
+		sec_set_charging(battery, battery->current_cable_status);
 #else	/* P4C H/W rev0.0 does not support yet */
-	if (battery->current_cable_status == CHARGER_AC) {
-		if (battery->pdata->set_charging_current)
-			battery->pdata->set_charging_current((int)set_current);
+	if (battery->pdata->set_charging_current)
+		battery->pdata->set_charging_current((int)set_current);
 
-		if (battery->pdata->get_charging_current)
-			battery->info.charging_current = \
-					battery->pdata->get_charging_current();
-	} else {
-		battery->info.charging_current = CHARGING_CURRENT_USB;
-	}
+	if (battery->pdata->get_charging_current)
+		battery->info.charging_current = \
+				battery->pdata->get_charging_current();
 #endif
 }
 
@@ -1008,8 +1002,8 @@ static int sec_bat_get_charging_status(struct battery_data *battery)
 {
 	switch (battery->info.charging_source) {
 	case CHARGER_BATTERY:
-	case CHARGER_USB:
 		return POWER_SUPPLY_STATUS_DISCHARGING;
+	case CHARGER_USB:
 	case CHARGER_AC:
 	case CHARGER_MISC:
 	case CHARGER_DOCK:
