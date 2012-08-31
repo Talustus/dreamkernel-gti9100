@@ -64,8 +64,8 @@ make -j10 distclean
 rm -rvf $INITRAMFS_TMP
 rm -vf $INITRAMFS_TMP.cpio
 rm -fv $KERNELDIR/zImage
-rm -vf $KERNELDIR/$0-modules.log
-rm -vf $KERNELDIR/$0-zImage.log
+rm -vf $KERNELDIR/*-modules.log
+rm -vf $KERNELDIR/*-zImage.log
 
 ## Checkout the DualRecovery Branch of initramfs
 # echo -e "${TXTYLW}Changing GIT Branch of initramfs to master ...${TXTCLR}"
