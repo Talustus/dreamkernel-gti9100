@@ -99,7 +99,9 @@ build_*.sh-modules.log
 build_*.sh-zImage.log
 build_dev-kernel.sh
 build_n7000-kernel.sh
-arch/arm/configs/dream_dev_defconfig
+build_sgs2-dev.sh
+build_sgs2-recovery.sh
+arch/arm/configs/dream_sgs2_dev_defconfig
 Changelog
 !recovery.tar.xz
 !recovery-dev.tar.xz
