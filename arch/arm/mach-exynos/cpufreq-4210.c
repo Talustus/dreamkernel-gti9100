@@ -501,5 +501,6 @@ ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 			j++;
 		exynos_info->volt_table[i+j] = u[i]*1000;
 	}
+	max8997_set_arm_voltage_table(exynos_info->volt_table, CPUFREQ_LEVEL_END);
 	return count;
 }
