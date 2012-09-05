@@ -271,7 +271,9 @@ static void usb_rx_complete(struct urb *urb)
 		switch (pipe_data->format) {
 		case IF_USB_FMT_EP:
 			if (usb_ld->if_usb_is_main) {
+#if 0
 				pr_urb("IPC-RX", urb);
+#endif
 				iod_format = IPC_FMT;
 			} else {
 				iod_format = IPC_BOOT;
