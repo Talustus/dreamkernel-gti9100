@@ -32,7 +32,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-I777-v3.3.3TWRP"
+KRNRLS="DreamKernel-I777-v3.3.4TWRP"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -79,7 +79,7 @@ echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
 echo
 echo -e "${TXTYLW}Creating default kernel Config (dream_i777_defconfig):${TXTCLR}"
 make dream_i777_defconfig
-sed -i 's|DreamKernel-I777-v2.7.3|DreamKernel-I777-v3.3.3TWRP|g' .config
+sed -i 's|DreamKernel-I777-v2.7.4|DreamKernel-I777-v3.3.4TWRP|g' .config
 echo
 
 . $KERNELDIR/.config
