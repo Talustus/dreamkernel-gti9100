@@ -2,12 +2,12 @@
 #
 ######################################################
 ## DreamKernel Compile Script for Samsung Galaxy S2 ##
-## GT-I9100 Devices.					   ##
-## Script is based on gokhanmorals buildscript	   ## 
-## This Script will build the Kernel,		   ##
-## add the payload (Superuser.apk and su Binary)	   ##
-## to the compiled zImage and also will add a 	   ##
-## Custom "TOUCH enabled" Recovery to the Kernel	   ##
+## GT-I9100 Devices.				    ##
+## Script is based on gokhanmorals buildscript	    ##
+## This Script will build the Kernel,		    ##
+## add the payload (Superuser.apk and su Binary)    ##
+## to the compiled zImage and also will add a 	    ##
+## Custom "TOUCH enabled" Recovery to the Kernel    ##
 ######################################################
 #
 ## Colors for error/info messages (Red,Green,Yellow and bolded)
