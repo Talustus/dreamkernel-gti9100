@@ -1,5 +1,5 @@
 /*
- * drivers/cpufreq/cpufreq_lulzactive.c
+ * drivers/cpufreq/cpufreq_lulzactiveq.c
  *
  * Copyright (C) 2010 Google, Inc.
  *
@@ -15,7 +15,9 @@
  * Author: Mike Chan (mike@android.com)
  * Edited: Tegrak (luciferanna@gmail.com)
  *
- * Driver values in /sys/devices/system/cpu/cpufreq/lulzactive
+ * New Version: Roberto / Gokhanmoral
+ *
+ * Driver values in /sys/devices/system/cpu/cpufreq/lulzactiveq
  * 
  */
 
@@ -31,12 +33,17 @@
 #include <linux/earlysuspend.h>
 #include <asm/cputime.h>
 #include <linux/suspend.h>
+#include <linux/slab.h>
+
+//a hack to make comparisons easier while having different structs in pegasusq and lulzactiveq
+#define hotplug_history hotplug_lulzq_history
+#define dvfs_workqueue dvfs_lulzq_workqueue
 
 #define LULZACTIVE_VERSION	(2)
 #define LULZACTIVE_AUTHOR	"tegrak"
 
 // if you changed some codes for optimization, just write your name here.
-#define LULZACTIVE_TUNER "siyah"
+#define LULZACTIVE_TUNER "siyah-robertobsc"
 
 static atomic_t active_count = ATOMIC_INIT(0);
 
@@ -55,6 +62,16 @@ struct cpufreq_lulzactive_cpuinfo {
 	unsigned int lulzfreq_table_size;
 	unsigned int target_freq;
 	int governor_enabled;
+	int cpu;
+	struct delayed_work work;
+	struct work_struct up_work;
+	struct work_struct down_work;
+	/*
+	 * percpu mutex that serializes governor limit change with
+	 * do_dbs_timer invocation. We do not want do_dbs_timer to run
+	 * when user is changing the governor or limits.
+	 */
+	struct mutex timer_mutex;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_lulzactive_cpuinfo, cpuinfo);
@@ -126,6 +143,146 @@ static unsigned int early_suspended;
 #define DEFAULT_SCREEN_OFF_MIN_STEP	(SCREEN_OFF_LOWEST_STEP)
 static unsigned long screen_off_min_step;
 
+#ifndef CONFIG_CPU_EXYNOS4210
+#define RQ_AVG_TIMER_RATE	10
+#else
+#define RQ_AVG_TIMER_RATE	20
+#endif
+
+struct runqueue_data {
+	unsigned int nr_run_avg;
+	unsigned int update_rate;
+	int64_t last_time;
+	int64_t total_time;
+	struct delayed_work work;
+	struct workqueue_struct *nr_run_wq;
+	spinlock_t lock;
+};
+
+static struct runqueue_data *rq_data;
+static void rq_work_fn(struct work_struct *work);
+
+static void start_rq_work(void)
+{
+	rq_data->nr_run_avg = 0;
+	rq_data->last_time = 0;
+	rq_data->total_time = 0;
+	if (rq_data->nr_run_wq == NULL)
+		rq_data->nr_run_wq =
+			create_singlethread_workqueue("nr_run_avg");
+
+	queue_delayed_work(rq_data->nr_run_wq, &rq_data->work,
+			   msecs_to_jiffies(rq_data->update_rate));
+	return;
+}
+
+static void stop_rq_work(void)
+{
+	if (rq_data->nr_run_wq)
+		cancel_delayed_work(&rq_data->work);
+	return;
+}
+
+static int __init init_rq_avg(void)
+{
+	rq_data = kzalloc(sizeof(struct runqueue_data), GFP_KERNEL);
+	if (rq_data == NULL) {
+		pr_err("%s cannot allocate memory\n", __func__);
+		return -ENOMEM;
+	}
+	spin_lock_init(&rq_data->lock);
+	rq_data->update_rate = RQ_AVG_TIMER_RATE;
+	INIT_DELAYED_WORK_DEFERRABLE(&rq_data->work, rq_work_fn);
+
+	return 0;
+}
+
+static void rq_work_fn(struct work_struct *work)
+{
+	int64_t time_diff = 0;
+	int64_t nr_run = 0;
+	unsigned long flags = 0;
+	int64_t cur_time = ktime_to_ns(ktime_get());
+
+	spin_lock_irqsave(&rq_data->lock, flags);
+
+	if (rq_data->last_time == 0)
+		rq_data->last_time = cur_time;
+	if (rq_data->nr_run_avg == 0)
+		rq_data->total_time = 0;
+
+	nr_run = nr_running() * 100;
+	time_diff = cur_time - rq_data->last_time;
+	do_div(time_diff, 1000 * 1000);
+
+	if (time_diff != 0 && rq_data->total_time != 0) {
+		nr_run = (nr_run * time_diff) +
+			(rq_data->nr_run_avg * rq_data->total_time);
+		do_div(nr_run, rq_data->total_time + time_diff);
+	}
+	rq_data->nr_run_avg = nr_run;
+	rq_data->total_time += time_diff;
+	rq_data->last_time = cur_time;
+
+	if (rq_data->update_rate != 0)
+		queue_delayed_work(rq_data->nr_run_wq, &rq_data->work,
+				   msecs_to_jiffies(rq_data->update_rate));
+
+	spin_unlock_irqrestore(&rq_data->lock, flags);
+}
+
+static unsigned int get_nr_run_avg(void)
+{
+	unsigned int nr_run_avg;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&rq_data->lock, flags);
+	nr_run_avg = rq_data->nr_run_avg;
+	rq_data->nr_run_avg = 0;
+	spin_unlock_irqrestore(&rq_data->lock, flags);
+
+	return nr_run_avg;
+}
+
+
+#define DEF_SAMPLING_RATE			(50000)
+#define MIN_SAMPLING_RATE			(10000)
+#define MAX_HOTPLUG_RATE			(40u)
+
+#define DEF_MAX_CPU_LOCK			(0)
+#define DEF_MIN_CPU_LOCK			(0)
+#define DEF_UP_NR_CPUS				(1)
+#define DEF_CPU_UP_RATE				(10)
+#define DEF_CPU_DOWN_RATE			(20)
+#define DEF_START_DELAY				(0)
+
+#define HOTPLUG_DOWN_INDEX			(0)
+#define HOTPLUG_UP_INDEX			(1)
+
+#ifdef CONFIG_MACH_MIDAS
+static int hotplug_rq[4][2] = {
+	{0, 100}, {100, 200}, {200, 300}, {300, 0}
+};
+
+static int hotplug_freq[4][2] = {
+	{0, 500000},
+	{200000, 500000},
+	{200000, 500000},
+	{200000, 0}
+};
+#else
+static int hotplug_rq[4][2] = {
+	{0, 200}, {200, 200}, {200, 300}, {300, 0}
+};
+
+static int hotplug_freq[4][2] = {
+	{0, 800000},
+	{500000, 800000},
+	{500000, 800000},
+	{500000, 0}
+};
+#endif
+
 static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 		unsigned int event);
 
@@ -133,10 +290,37 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 static
 #endif
 struct cpufreq_governor cpufreq_gov_lulzactive = {
-	.name = "lulzactive",
+    .name = "lulzactiveq",
 	.governor = cpufreq_governor_lulzactive,
 	.max_transition_latency = 10000000,
 	.owner = THIS_MODULE,
+};
+
+struct workqueue_struct *dvfs_workqueue;
+// putted tunners aggrouped into this structure, to be more clear.
+static struct dbs_tuners {
+    unsigned int  hotplug_sampling_rate;
+
+    /* hotplug tuners - from lulzactiveq */
+	unsigned int cpu_up_rate;
+	unsigned int cpu_down_rate;
+	unsigned int up_nr_cpus;
+	unsigned int max_cpu_lock;
+	unsigned int min_cpu_lock;
+	atomic_t hotplug_lock;
+	unsigned int dvfs_debug;
+} dbs_tuners_ins = {
+	.hotplug_sampling_rate=DEF_SAMPLING_RATE,
+
+	.cpu_up_rate = DEF_CPU_UP_RATE,
+	.cpu_down_rate = DEF_CPU_DOWN_RATE,
+	.up_nr_cpus = DEF_UP_NR_CPUS,
+	.max_cpu_lock = DEF_MAX_CPU_LOCK,
+	.min_cpu_lock = DEF_MIN_CPU_LOCK,
+	.hotplug_lock = ATOMIC_INIT(0),
+	.dvfs_debug = 0,
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#endif
 };
 
 static unsigned int get_lulzfreq_table_size(struct cpufreq_lulzactive_cpuinfo *pcpu) {
@@ -802,6 +986,360 @@ static ssize_t show_freq_table(struct kobject *kobj,
 static struct global_attr freq_table_attr = __ATTR(freq_table, 0444,
 		show_freq_table, NULL);
 
+
+/*
+ * CPU hotplug lock interface
+ */
+
+static atomic_t g_hotplug_count = ATOMIC_INIT(0);
+static atomic_t g_hotplug_lock = ATOMIC_INIT(0);
+
+static void apply_hotplug_lock(void)
+{
+	int online, possible, lock, flag;
+	struct work_struct *work;
+    struct cpufreq_lulzactive_cpuinfo *dbs_info;
+
+	/* do turn_on/off cpus */
+    dbs_info = &per_cpu(cpuinfo, 0); /* from CPU0 */
+	online = num_online_cpus();
+	possible = num_possible_cpus();
+	lock = atomic_read(&g_hotplug_lock);
+	flag = lock - online;
+
+	if (flag == 0)
+		return;
+
+	work = flag > 0 ? &dbs_info->up_work : &dbs_info->down_work;
+
+	pr_debug("%s online %d possible %d lock %d flag %d %d\n",
+		 __func__, online, possible, lock, flag, (int)abs(flag));
+
+	queue_work_on(dbs_info->cpu, dvfs_workqueue, work);
+}
+
+int cpufreq_lulzactiveq_cpu_lock(int num_core)
+{
+	int prev_lock;
+
+	if (num_core < 1 || num_core > num_possible_cpus())
+		return -EINVAL;
+
+	prev_lock = atomic_read(&g_hotplug_lock);
+
+	if (prev_lock != 0 && prev_lock < num_core)
+		return -EINVAL;
+	else if (prev_lock == num_core)
+		atomic_inc(&g_hotplug_count);
+
+	atomic_set(&g_hotplug_lock, num_core);
+	atomic_set(&g_hotplug_count, 1);
+	apply_hotplug_lock();
+
+	return 0;
+}
+
+int cpufreq_lulzactiveq_cpu_unlock(int num_core)
+{
+	int prev_lock = atomic_read(&g_hotplug_lock);
+
+	if (prev_lock < num_core)
+		return 0;
+	else if (prev_lock == num_core)
+		atomic_dec(&g_hotplug_count);
+
+	if (atomic_read(&g_hotplug_count) == 0)
+		atomic_set(&g_hotplug_lock, 0);
+
+	return 0;
+}
+
+void cpufreq_lulzactiveq_min_cpu_lock(unsigned int num_core)
+{
+	int online, flag;
+	struct cpufreq_lulzactive_cpuinfo *dbs_info;
+
+	dbs_tuners_ins.min_cpu_lock = min(num_core, num_possible_cpus());
+
+	dbs_info = &per_cpu(cpuinfo, 0); /* from CPU0 */
+	online = num_online_cpus();
+	flag = (int)num_core - online;
+	if (flag <= 0)
+		return;
+	queue_work_on(dbs_info->cpu, dvfs_workqueue, &dbs_info->up_work);
+}
+
+void cpufreq_lulzactiveq_min_cpu_unlock(void)
+{
+	int online, lock, flag;
+	struct cpufreq_lulzactive_cpuinfo *dbs_info;
+
+	dbs_tuners_ins.min_cpu_lock = 0;
+
+	dbs_info = &per_cpu(cpuinfo, 0); /* from CPU0 */
+	online = num_online_cpus();
+	lock = atomic_read(&g_hotplug_lock);
+	if (lock == 0)
+		return;
+	flag = lock - online;
+	if (flag >= 0)
+		return;
+	queue_work_on(dbs_info->cpu, dvfs_workqueue, &dbs_info->down_work);
+}
+
+/*
+ * History of CPU usage
+ */
+struct cpu_usage {
+	unsigned int freq;
+	unsigned int load[NR_CPUS];
+	unsigned int rq_avg;
+};
+
+struct cpu_usage_history {
+	struct cpu_usage usage[MAX_HOTPLUG_RATE];
+	unsigned int num_hist;
+};
+
+struct cpu_usage_history *hotplug_history;
+// defines file parameters names.
+
+
+/* cpufreq_pegasusq Governor Tunables */
+#define show_one(file_name, object)					\
+static ssize_t show_##file_name						\
+(struct kobject *kobj, struct attribute *attr, char *buf)		\
+{									\
+	return sprintf(buf, "%u\n", dbs_tuners_ins.object);		\
+}
+
+show_one(hotplug_sampling_rate,hotplug_sampling_rate);
+show_one(cpu_up_rate, cpu_up_rate);
+show_one(cpu_down_rate, cpu_down_rate);
+#ifndef CONFIG_CPU_EXYNOS4210
+show_one(up_nr_cpus, up_nr_cpus);
+#endif
+show_one(max_cpu_lock, max_cpu_lock);
+show_one(min_cpu_lock, min_cpu_lock);
+show_one(dvfs_debug, dvfs_debug);
+static ssize_t show_hotplug_lock(struct kobject *kobj,
+				struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", atomic_read(&g_hotplug_lock));
+}
+
+#define show_hotplug_param(file_name, num_core, up_down)		\
+static ssize_t show_##file_name##_##num_core##_##up_down		\
+(struct kobject *kobj, struct attribute *attr, char *buf)		\
+{									\
+	return sprintf(buf, "%u\n", file_name[num_core - 1][up_down]);	\
+}
+
+#define store_hotplug_param(file_name, num_core, up_down)		\
+static ssize_t store_##file_name##_##num_core##_##up_down		\
+(struct kobject *kobj, struct attribute *attr,				\
+	const char *buf, size_t count)					\
+{									\
+	unsigned int input;						\
+	int ret;							\
+	ret = sscanf(buf, "%u", &input);				\
+	if (ret != 1)							\
+		return -EINVAL;						\
+	file_name[num_core - 1][up_down] = input;			\
+	return count;							\
+}
+
+show_hotplug_param(hotplug_freq, 1, 1);
+show_hotplug_param(hotplug_freq, 2, 0);
+#ifndef CONFIG_CPU_EXYNOS4210
+show_hotplug_param(hotplug_freq, 2, 1);
+show_hotplug_param(hotplug_freq, 3, 0);
+show_hotplug_param(hotplug_freq, 3, 1);
+show_hotplug_param(hotplug_freq, 4, 0);
+#endif
+
+show_hotplug_param(hotplug_rq, 1, 1);
+show_hotplug_param(hotplug_rq, 2, 0);
+#ifndef CONFIG_CPU_EXYNOS4210
+show_hotplug_param(hotplug_rq, 2, 1);
+show_hotplug_param(hotplug_rq, 3, 0);
+show_hotplug_param(hotplug_rq, 3, 1);
+show_hotplug_param(hotplug_rq, 4, 0);
+#endif
+
+store_hotplug_param(hotplug_freq, 1, 1);
+store_hotplug_param(hotplug_freq, 2, 0);
+#ifndef CONFIG_CPU_EXYNOS4210
+store_hotplug_param(hotplug_freq, 2, 1);
+store_hotplug_param(hotplug_freq, 3, 0);
+store_hotplug_param(hotplug_freq, 3, 1);
+store_hotplug_param(hotplug_freq, 4, 0);
+#endif
+
+store_hotplug_param(hotplug_rq, 1, 1);
+store_hotplug_param(hotplug_rq, 2, 0);
+#ifndef CONFIG_CPU_EXYNOS4210
+store_hotplug_param(hotplug_rq, 2, 1);
+store_hotplug_param(hotplug_rq, 3, 0);
+store_hotplug_param(hotplug_rq, 3, 1);
+store_hotplug_param(hotplug_rq, 4, 0);
+#endif
+
+define_one_global_rw(hotplug_freq_1_1);
+define_one_global_rw(hotplug_freq_2_0);
+#ifndef CONFIG_CPU_EXYNOS4210
+define_one_global_rw(hotplug_freq_2_1);
+define_one_global_rw(hotplug_freq_3_0);
+define_one_global_rw(hotplug_freq_3_1);
+define_one_global_rw(hotplug_freq_4_0);
+#endif
+
+define_one_global_rw(hotplug_rq_1_1);
+define_one_global_rw(hotplug_rq_2_0);
+#ifndef CONFIG_CPU_EXYNOS4210
+define_one_global_rw(hotplug_rq_2_1);
+define_one_global_rw(hotplug_rq_3_0);
+define_one_global_rw(hotplug_rq_3_1);
+define_one_global_rw(hotplug_rq_4_0);
+#endif
+
+
+static ssize_t store_hotplug_sampling_rate(struct kobject *a, struct attribute *b,
+				const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+    dbs_tuners_ins.hotplug_sampling_rate = input; //, MIN_SAMPLING_RATE);
+	return count;
+}
+static ssize_t store_cpu_up_rate(struct kobject *a, struct attribute *b,
+				 const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.cpu_up_rate = min(input, MAX_HOTPLUG_RATE);
+	return count;
+}
+
+static ssize_t store_cpu_down_rate(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.cpu_down_rate = min(input, MAX_HOTPLUG_RATE);
+	return count;
+}
+
+
+#ifndef CONFIG_CPU_EXYNOS4210
+static ssize_t store_up_nr_cpus(struct kobject *a, struct attribute *b,
+				const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.up_nr_cpus = min(input, num_possible_cpus());
+	return count;
+}
+#endif
+
+static ssize_t store_max_cpu_lock(struct kobject *a, struct attribute *b,
+				  const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.max_cpu_lock = min(input, num_possible_cpus());
+	return count;
+}
+
+static ssize_t store_min_cpu_lock(struct kobject *a, struct attribute *b,
+				  const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	if (input == 0)
+		cpufreq_lulzactiveq_min_cpu_unlock();
+	else
+		cpufreq_lulzactiveq_min_cpu_lock(input);
+	return count;
+}
+
+static ssize_t store_hotplug_lock(struct kobject *a, struct attribute *b,
+				  const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	int prev_lock;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	input = min(input, num_possible_cpus());
+	prev_lock = atomic_read(&dbs_tuners_ins.hotplug_lock);
+
+	if (prev_lock)
+		cpufreq_lulzactiveq_cpu_unlock(prev_lock);
+
+	if (input == 0) {
+		atomic_set(&dbs_tuners_ins.hotplug_lock, 0);
+		return count;
+	}
+
+	ret = cpufreq_lulzactiveq_cpu_lock(input);
+	if (ret) {
+		printk(KERN_ERR "[HOTPLUG] already locked with smaller value %d < %d\n",
+			atomic_read(&g_hotplug_lock), input);
+		return ret;
+	}
+
+	atomic_set(&dbs_tuners_ins.hotplug_lock, input);
+
+	return count;
+}
+
+static ssize_t store_dvfs_debug(struct kobject *a, struct attribute *b,
+				const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.dvfs_debug = input > 0;
+	return count;
+}
+
+define_one_global_rw(hotplug_sampling_rate);
+#ifndef CONFIG_CPU_EXYNOS4210
+define_one_global_rw(up_nr_cpus);
+#endif
+define_one_global_rw(max_cpu_lock);
+define_one_global_rw(min_cpu_lock);
+define_one_global_rw(hotplug_lock);
+define_one_global_rw(dvfs_debug);
+define_one_global_rw(cpu_up_rate);
+define_one_global_rw(cpu_down_rate);
+
+
 static struct attribute *lulzactive_attributes[] = {
 	&hispeed_freq_attr.attr,
 	&inc_cpu_load_attr.attr,
@@ -811,6 +1349,38 @@ static struct attribute *lulzactive_attributes[] = {
 	&pump_down_step_attr.attr,
 	&screen_off_min_step_attr.attr,
 	&debug_mode_attr.attr,
+
+    /*hotplug attributes*/
+
+    &hotplug_sampling_rate.attr,
+	&cpu_up_rate.attr,
+	&cpu_down_rate.attr,
+#ifndef CONFIG_CPU_EXYNOS4210
+	&up_nr_cpus.attr,
+#endif
+	/* priority: hotplug_lock > max_cpu_lock > min_cpu_lock
+	   Exception: hotplug_lock on early_suspend uses min_cpu_lock */
+	&max_cpu_lock.attr,
+	&min_cpu_lock.attr,
+	&hotplug_lock.attr,
+	&dvfs_debug.attr,
+	&hotplug_freq_1_1.attr,
+	&hotplug_freq_2_0.attr,
+#ifndef CONFIG_CPU_EXYNOS4210
+	&hotplug_freq_2_1.attr,
+	&hotplug_freq_3_0.attr,
+	&hotplug_freq_3_1.attr,
+	&hotplug_freq_4_0.attr,
+#endif
+	&hotplug_rq_1_1.attr,
+	&hotplug_rq_2_0.attr,
+#ifndef CONFIG_CPU_EXYNOS4210
+	&hotplug_rq_2_1.attr,
+	&hotplug_rq_3_0.attr,
+	&hotplug_rq_3_1.attr,
+	&hotplug_rq_4_0.attr,
+#endif
+
 	&author_attr.attr,
 	&tuner_attr.attr,
 	&version_attr.attr,
@@ -818,13 +1388,267 @@ static struct attribute *lulzactive_attributes[] = {
 	NULL,
 };
 
-void start_lulzactive(void);
-void stop_lulzactive(void);
+void start_lulzactiveq(void);
+void stop_lulzactiveq(void);
 
 static struct attribute_group lulzactive_attr_group = {
 	.attrs = lulzactive_attributes,
-	.name = "lulzactive",
+    .name = "lulzactiveq",
 };
+
+
+static void cpu_up_work(struct work_struct *work)
+{
+	int cpu;
+	int online = num_online_cpus();
+	int nr_up = dbs_tuners_ins.up_nr_cpus;
+	int min_cpu_lock = dbs_tuners_ins.min_cpu_lock;
+	int hotplug_lock = atomic_read(&g_hotplug_lock);
+
+	if (hotplug_lock && min_cpu_lock)
+		nr_up = max(hotplug_lock, min_cpu_lock) - online;
+	else if (hotplug_lock)
+		nr_up = hotplug_lock - online;
+	else if (min_cpu_lock)
+		nr_up = max(nr_up, min_cpu_lock - online);
+
+	if (online == 1) {
+		printk(KERN_ERR "CPU_UP 3\n");
+		cpu_up(num_possible_cpus() - 1);
+		nr_up -= 1;
+	}
+
+	for_each_cpu_not(cpu, cpu_online_mask) {
+		if (nr_up-- == 0)
+			break;
+		if (cpu == 0)
+			continue;
+		printk(KERN_ERR "CPU_UP %d\n", cpu);
+		cpu_up(cpu);
+	}
+}
+
+static void cpu_down_work(struct work_struct *work)
+{
+	int cpu;
+	int online = num_online_cpus();
+	int nr_down = 1;
+	int hotplug_lock = atomic_read(&g_hotplug_lock);
+
+	if (hotplug_lock)
+		nr_down = online - hotplug_lock;
+
+	for_each_online_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		printk(KERN_ERR "CPU_DOWN %d\n", cpu);
+		cpu_down(cpu);
+		if (--nr_down == 0)
+			break;
+	}
+}
+
+/*
+ * print hotplug debugging info.
+ * which 1 : UP, 0 : DOWN
+ */
+static void debug_hotplug_check(int which, int rq_avg, int freq,
+			 struct cpu_usage *usage)
+{
+	int cpu;
+	printk(KERN_ERR "CHECK %s rq %d.%02d freq %d [", which ? "up" : "down",
+	       rq_avg / 100, rq_avg % 100, freq);
+	for_each_online_cpu(cpu) {
+		printk(KERN_ERR "(%d, %d), ", cpu, usage->load[cpu]);
+	}
+	printk(KERN_ERR "]\n");
+}
+
+static int check_up(void)
+{
+	int num_hist = hotplug_history->num_hist;
+	struct cpu_usage *usage;
+	int freq, rq_avg;
+	int i;
+	int up_rate = dbs_tuners_ins.cpu_up_rate;
+	int up_freq, up_rq;
+	int min_freq = INT_MAX;
+	int min_rq_avg = INT_MAX;
+	int avg_freq = 0, avg_rq = 0;
+	int online;
+	int hotplug_lock = atomic_read(&g_hotplug_lock);
+
+	if (hotplug_lock > 0)
+		return 0;
+
+	online = num_online_cpus();
+	up_freq = hotplug_freq[online - 1][HOTPLUG_UP_INDEX];
+	up_rq = hotplug_rq[online - 1][HOTPLUG_UP_INDEX];
+
+	if (online == num_possible_cpus())
+		return 0;
+
+	if (dbs_tuners_ins.max_cpu_lock != 0
+		&& online >= dbs_tuners_ins.max_cpu_lock)
+		return 0;
+
+	if (dbs_tuners_ins.min_cpu_lock != 0
+		&& online < dbs_tuners_ins.min_cpu_lock)
+		return 1;
+
+	if (num_hist % up_rate)
+		return 0;
+	if(num_hist == 0) num_hist = MAX_HOTPLUG_RATE;
+
+	for (i = num_hist - 1; i >= num_hist - up_rate; --i) {
+		usage = &hotplug_history->usage[i];
+
+		freq = usage->freq;
+		rq_avg =  usage->rq_avg;
+
+		min_freq = min(min_freq, freq);
+		min_rq_avg = min(min_rq_avg, rq_avg);
+		avg_rq += rq_avg;
+		avg_freq += freq;
+
+		if (dbs_tuners_ins.dvfs_debug)
+			debug_hotplug_check(1, rq_avg, freq, usage);
+	}
+	avg_rq /= up_rate;
+	avg_freq /= up_rate;
+
+	if (avg_freq >= up_freq && avg_rq > up_rq) {
+		printk(KERN_ERR "[HOTPLUG IN] %s %d>=%d && %d>%d\n",
+			__func__, min_freq, up_freq, min_rq_avg, up_rq);
+//		hotplug_history->num_hist = 0;
+		return 1;
+	}
+	return 0;
+}
+
+static int check_down(void)
+{
+	int num_hist = hotplug_history->num_hist;
+	struct cpu_usage *usage;
+	int freq, rq_avg;
+	int i;
+	int down_rate = dbs_tuners_ins.cpu_down_rate;
+	int down_freq, down_rq;
+	int max_freq = 0;
+	int max_rq_avg = 0;
+	int avg_freq = 0, avg_rq = 0;
+	int online;
+	int hotplug_lock = atomic_read(&g_hotplug_lock);
+
+	if (hotplug_lock > 0)
+		return 0;
+
+	online = num_online_cpus();
+	down_freq = hotplug_freq[online - 1][HOTPLUG_DOWN_INDEX];
+	down_rq = hotplug_rq[online - 1][HOTPLUG_DOWN_INDEX];
+
+	if (online == 1)
+		return 0;
+
+	if (dbs_tuners_ins.max_cpu_lock != 0
+		&& online > dbs_tuners_ins.max_cpu_lock)
+		return 1;
+
+	if (dbs_tuners_ins.min_cpu_lock != 0
+		&& online <= dbs_tuners_ins.min_cpu_lock)
+		return 0;
+
+	if (num_hist % down_rate)
+		return 0;
+	if(num_hist == 0) num_hist = MAX_HOTPLUG_RATE; //make it circular -gm
+
+	for (i = num_hist - 1; i >= num_hist - down_rate; --i) {
+		usage = &hotplug_history->usage[i];
+
+		freq = usage->freq;
+		rq_avg =  usage->rq_avg;
+
+		max_freq = max(max_freq, freq);
+		max_rq_avg = max(max_rq_avg, rq_avg);
+		avg_rq += rq_avg;
+		avg_freq += freq;
+
+		if (dbs_tuners_ins.dvfs_debug)
+			debug_hotplug_check(0, rq_avg, freq, usage);
+	}
+	avg_rq /= down_rate;
+	avg_freq /= down_rate;
+
+	if (avg_freq <= down_freq && avg_rq <= down_rq) {
+		printk(KERN_ERR "[HOTPLUG OUT] %s %d<=%d && %d<%d\n",
+			__func__, max_freq, down_freq, max_rq_avg, down_rq);
+//		hotplug_history->num_hist = 0;
+		return 1;
+	}
+
+	return 0;
+}
+
+static void dbs_check_cpu(struct cpufreq_lulzactive_cpuinfo *this_dbs_info)
+{
+	struct cpufreq_policy *policy;
+	int num_hist = hotplug_history->num_hist;
+	int max_hotplug_rate = MAX_HOTPLUG_RATE;
+
+	policy = this_dbs_info->policy;
+
+	hotplug_history->usage[num_hist].freq = policy->cur;
+	hotplug_history->usage[num_hist].rq_avg = get_nr_run_avg();
+	++hotplug_history->num_hist;
+
+	/* Check for CPU hotplug */
+	if (check_up()) {
+		queue_work_on(this_dbs_info->cpu, dvfs_workqueue,
+			      &this_dbs_info->up_work);
+	} else if (check_down()) {
+		queue_work_on(this_dbs_info->cpu, dvfs_workqueue,
+			      &this_dbs_info->down_work);
+	}
+	if (hotplug_history->num_hist  == max_hotplug_rate)
+		hotplug_history->num_hist = 0;
+}
+
+static void do_dbs_timer(struct work_struct *work)
+{
+    struct cpufreq_lulzactive_cpuinfo *dbs_info =
+            container_of(work, struct cpufreq_lulzactive_cpuinfo, work.work);
+	unsigned int cpu = dbs_info->cpu;
+	int delay;
+
+	mutex_lock(&dbs_info->timer_mutex);
+
+	dbs_check_cpu(dbs_info);
+	/* We want all CPUs to do sampling nearly on
+	 * same jiffy
+	 */
+    delay = usecs_to_jiffies(dbs_tuners_ins.hotplug_sampling_rate);
+
+	if (num_online_cpus() > 1)
+		delay -= jiffies % delay;
+
+	queue_delayed_work_on(cpu, dvfs_workqueue, &dbs_info->work, delay);
+	mutex_unlock(&dbs_info->timer_mutex);
+}
+static inline void hotplug_timer_init(struct cpufreq_lulzactive_cpuinfo *dbs_info)
+{
+	/* We want all CPUs to do sampling nearly on same jiffy */
+	int delay = usecs_to_jiffies(DEF_START_DELAY * 1000 * 1000
+            + dbs_tuners_ins.hotplug_sampling_rate);
+	if (num_online_cpus() > 1)
+		delay -= jiffies % delay;
+
+	INIT_DELAYED_WORK_DEFERRABLE(&dbs_info->work, do_dbs_timer);
+	INIT_WORK(&dbs_info->up_work, cpu_up_work);
+	INIT_WORK(&dbs_info->down_work, cpu_down_work);
+
+	queue_delayed_work_on(dbs_info->cpu, dvfs_workqueue,
+			      &dbs_info->work, delay + 2 * HZ);
+}
 
 static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 		unsigned int event)
@@ -839,6 +1663,10 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 		if (!cpu_online(policy->cpu))
 			return -EINVAL;
 
+        /* init works and timer of each cpu */
+
+        hotplug_history->num_hist = 0;
+        start_rq_work();
 		freq_table =
 			cpufreq_frequency_get_table(policy->cpu);
 
@@ -861,13 +1689,17 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 		if (!hispeed_freq)
 			hispeed_freq = policy->max;
 
+		/*  starting hotplug */
+		pcpu = &per_cpu(cpuinfo, policy->cpu);
+		mutex_init(&pcpu->timer_mutex);
+		hotplug_timer_init (pcpu);
 		/*
 		 * Do not register the idle hook and create sysfs
 		 * entries if we have already done so.
 		 */
 		if (atomic_inc_return(&active_count) > 1)
 			return 0;
-		start_lulzactive();
+        start_lulzactiveq();
 
 		rc = sysfs_create_group(cpufreq_global_kobject,
 				&lulzactive_attr_group);
@@ -877,6 +1709,12 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
+		/* finish works from each cpu */
+		pcpu = &per_cpu(cpuinfo, policy->cpu);
+		cancel_delayed_work_sync(&pcpu->work);
+		cancel_work_sync(&pcpu->up_work);
+		cancel_work_sync(&pcpu->down_work);
+		mutex_destroy(&pcpu->timer_mutex);
 		for_each_cpu(j, policy->cpus) {
 			pcpu = &per_cpu(cpuinfo, j);
 			pcpu->governor_enabled = 0;
@@ -893,12 +1731,13 @@ static int cpufreq_governor_lulzactive(struct cpufreq_policy *policy,
 		}
 
 		flush_work(&freq_scale_down_work);
+        stop_rq_work();
 		if (atomic_dec_return(&active_count) > 0)
 			return 0;
 
 		sysfs_remove_group(cpufreq_global_kobject,
 				&lulzactive_attr_group);
-		stop_lulzactive();
+        stop_lulzactiveq();
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
@@ -947,7 +1786,7 @@ static struct early_suspend lulzactive_power_suspend = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1,
 };
 
-void start_lulzactive(void)
+void start_lulzactiveq(void)
 {
 	//it is more appropriate to start the up_task thread after starting the governor -gm
 	unsigned int i, index500, index800;
@@ -977,7 +1816,7 @@ void start_lulzactive(void)
 	}	
 
 	up_task = kthread_create(cpufreq_lulzactive_up_task, NULL,
-				 "klulzactiveup");
+                 "klulzqup");
 
 	sched_setscheduler_nocheck(up_task, SCHED_FIFO, &param);
 	get_task_struct(up_task);
@@ -986,7 +1825,7 @@ void start_lulzactive(void)
 	register_early_suspend(&lulzactive_power_suspend);
 }
 
-void stop_lulzactive(void)
+void stop_lulzactiveq(void)
 {
 	//cleanup the thread after stopping the governor -gm
 	kthread_stop(up_task);
@@ -1000,8 +1839,8 @@ void stop_lulzactive(void)
 
 static int __init cpufreq_lulzactive_init(void)
 {
-	unsigned int i;
-	struct cpufreq_lulzactive_cpuinfo *pcpu;
+    unsigned int i; int ret;
+    struct cpufreq_lulzactive_cpuinfo *pcpu;
 	up_sample_time = DEFAULT_UP_SAMPLE_TIME;
 	down_sample_time = DEFAULT_DOWN_SAMPLE_TIME;
 	inc_cpu_load = DEFAULT_INC_CPU_LOAD;
@@ -1010,7 +1849,22 @@ static int __init cpufreq_lulzactive_init(void)
 	pump_down_step = DEFAULT_PUMP_DOWN_STEP;
 	early_suspended = 0;
 	screen_off_min_step = DEFAULT_SCREEN_OFF_MIN_STEP;
+	ret = init_rq_avg();
+	if(ret) return ret;
 
+	hotplug_history = kzalloc(sizeof(struct cpu_usage_history), GFP_KERNEL);
+	if (!hotplug_history) {
+		pr_err("%s cannot create lulzactive hotplug history array\n", __func__);
+		ret = -ENOMEM;
+		goto err_queue;
+	}
+
+	dvfs_workqueue = create_workqueue("klulzactiveq");
+	if (!dvfs_workqueue) {
+		pr_err("%s cannot create workqueue\n", __func__);
+		ret = -ENOMEM;
+		goto err_freeuptask;
+	}
 
 	/* Initalize per-cpu timers */
 	for_each_possible_cpu(i) {
@@ -1022,7 +1876,7 @@ static int __init cpufreq_lulzactive_init(void)
 
 	/* No rescuer thread, bind to CPU queuing the work for possibly
 	   warm cache (probably doesn't matter much). */
-	down_wq = alloc_workqueue("knteractive_down", 0, 1);
+	down_wq = alloc_workqueue("klulzactiveq_down", 0, 1);
 
 	if (!down_wq)
 		goto err_freeuptask;
@@ -1037,8 +1891,11 @@ static int __init cpufreq_lulzactive_init(void)
 	return cpufreq_register_governor(&cpufreq_gov_lulzactive);
 
 err_freeuptask:
+	kfree(hotplug_history);
 	put_task_struct(up_task);
-	return -ENOMEM;
+err_queue:
+	kfree(rq_data);
+	return (ret) ? ret : -ENOMEM;
 }
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_LULZACTIVE
@@ -1052,11 +1909,14 @@ static void __exit cpufreq_lulzactive_exit(void)
 	cpufreq_unregister_governor(&cpufreq_gov_lulzactive);
 	kthread_stop(up_task);
 	put_task_struct(up_task);
+	destroy_workqueue(dvfs_workqueue);
 	destroy_workqueue(down_wq);
+	kfree(hotplug_history);
+	kfree(rq_data);
 }
 
 module_exit(cpufreq_lulzactive_exit);
 
 MODULE_AUTHOR("Tegrak <luciferanna@gmail.com>");
-MODULE_DESCRIPTION("'lulzactive' - improved interactive governor inspired by smartass");
+MODULE_DESCRIPTION("'lulzactiveQ' - improved lulzactive governor with hotplug logic");
 MODULE_LICENSE("GPL");
