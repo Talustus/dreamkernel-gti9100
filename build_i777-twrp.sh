@@ -32,7 +32,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-I777-v3.3.4TWRP"
+KRNRLS="DreamKernel-I777-v3.3.5TWRP"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -68,7 +68,7 @@ rm -vf $KERNELDIR/*-modules.log
 rm -vf $KERNELDIR/*-zImage.log
 
 ## Checkout the DualRecovery Branch of initramfs
-# echo -e "${TXTYLW}Changing GIT Branch of initramfs to master ...${TXTCLR}"
+# echo -e "${TXTYLW}Changing GIT Branch of initramfs to dualrecovery ...${TXTCLR}"
 # cd $INITRAMFS_SOURCE
 # git checkout dualrecovery
 # cd $KERNELDIR/ 
@@ -79,7 +79,7 @@ echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
 echo
 echo -e "${TXTYLW}Creating default kernel Config (dream_i777_defconfig):${TXTCLR}"
 make dream_i777_defconfig
-sed -i 's|DreamKernel-I777-v2.7.4|DreamKernel-I777-v3.3.4TWRP|g' .config
+sed -i 's|DreamKernel-I777-v2.7.5|DreamKernel-I777-v3.3.5TWRP|g' .config
 echo
 
 . $KERNELDIR/.config

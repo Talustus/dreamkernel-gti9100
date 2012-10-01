@@ -31,7 +31,7 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-v3.3.4TWRP"
+KRNRLS="DreamKernel-v3.3.5TWRP"
 KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
@@ -75,7 +75,7 @@ make dream_sgs2_defconfig
 echo
 
 echo -e "${TXTYLW}Changing kernelVersions String to match TWRP Build:${TXTCLR}"
-sed -i 's|DreamKernel-v2.7.4|DreamKernel-v3.3.4TWRP|g' .config
+sed -i 's|DreamKernel-v2.7.5|DreamKernel-v3.3.5TWRP|g' .config
 
 . $KERNELDIR/.config
 nice -n 10 make -j12 KBUILD_BUILD_HOST="$HOSTNAME" modules 2>&1 | tee $0-modules.log || exit 1
