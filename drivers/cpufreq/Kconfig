@@ -370,7 +370,6 @@ config CPU_FREQ_GOV_SLEEPY
 	tristate "'sleepy' cpufreq governor"
 	depends on CPU_FREQ
 	help
-          'solo' - an "ondemandx" based tweaked, smart and smooth optimized governor!
           'sleepy' - an "ondemandx" based tweaked, smart and smooth optimized governor!
 
 config CPU_FREQ_GOV_SLP
