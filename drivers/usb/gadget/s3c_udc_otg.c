@@ -655,13 +655,18 @@ static void set_max_pktsize(struct s3c_udc *dev, enum usb_device_speed speed)
 	} else {
 		ep0_fifo_size = 64;
 		ep_fifo_size = 64;
-		ep_fifo_size2 = 64;
+		ep_fifo_size2 = 1023;
 		dev->gadget.speed = USB_SPEED_FULL;
 	}
 
 	dev->ep[0].ep.maxpacket = ep0_fifo_size;
-	for (i = 1; i < S3C_MAX_ENDPOINTS; i++)
-		dev->ep[i].ep.maxpacket = ep_fifo_size;
+	for (i = 1; i < S3C_MAX_ENDPOINTS; i++) {
+		/* fullspeed limitations don't apply to isochronous endpoints */
+		if (dev->ep[i].bmAttributes == USB_ENDPOINT_XFER_ISOC)
+			dev->ep[i].ep.maxpacket = ep_fifo_size2;
+		else
+			dev->ep[i].ep.maxpacket = ep_fifo_size;
+	}
 
 	/* EP0 - Control IN (64 bytes)*/
 	ep_ctrl = __raw_readl(dev->regs + S3C_UDC_OTG_DIEPCTL(EP0_CON));
@@ -1158,7 +1163,7 @@ static struct s3c_udc memory = {
 		.ep = {
 			.name = "ep15-int",
 			.ops = &s3c_ep_ops,
-			.maxpacket = EP_FIFO_SIZE,
+			.maxpacket = EP_FIFO_SIZE2,
 		},
 		.dev = &memory,
 

@@ -178,6 +178,14 @@ static int setdma_tx(struct s3c_ep *ep, struct s3c_request *req)
 	__raw_writel(virt_to_phys(buf), udc->regs + S3C_UDC_OTG_DIEPDMA(ep_num));
 	__raw_writel((pktcnt<<19)|(length<<0), udc->regs + S3C_UDC_OTG_DIEPTSIZ(ep_num));
 	ctrl = __raw_readl(udc->regs + S3C_UDC_OTG_DIEPCTL(ep_num));
+
+	if ((ctrl & DEPCTL_TYPE_MASK) == DEPCTL_ISO_TYPE) {
+		if (ctrl & DEPCTL_EO_FRNUM)
+			ctrl |= DEPCTL_SETD0PID;
+		else
+			ctrl |= DEPCTL_SETD1PID;
+	}
+
 	__raw_writel(DEPCTL_EPENA|DEPCTL_CNAK|ctrl,
 		udc->regs + S3C_UDC_OTG_DIEPCTL(ep_num));
 
@@ -1033,7 +1041,11 @@ void s3c_udc_ep_activate(struct s3c_ep *ep)
 			(ep->bmAttributes << DEPCTL_TYPE_BIT);
 		ep_ctrl = (ep_ctrl & ~DEPCTL_MPS_MASK) |
 			(ep->ep.maxpacket << DEPCTL_MPS_BIT);
-		ep_ctrl |= (DEPCTL_SETD0PID | DEPCTL_USBACTEP | DEPCTL_SNAK);
+
+		if (ep->bmAttributes == USB_ENDPOINT_XFER_ISOC)
+			ep_ctrl |= (DEPCTL_SETD1PID | DEPCTL_USBACTEP | DEPCTL_SNAK);
+		else
+			ep_ctrl |= (DEPCTL_SETD0PID | DEPCTL_USBACTEP | DEPCTL_SNAK);
 
 		if (ep_is_in(ep)) {
 			__raw_writel(ep_ctrl, dev->regs + S3C_UDC_OTG_DIEPCTL(ep_num));
