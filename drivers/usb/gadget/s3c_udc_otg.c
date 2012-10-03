@@ -696,7 +696,8 @@ static int s3c_ep_enable(struct usb_ep *_ep,
 	}
 
 	/* xfer types must match, except that interrupt ~= bulk */
-	if (ep->bmAttributes != desc->bmAttributes
+	if (ep->bmAttributes !=
+			(desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
 	    && ep->bmAttributes != USB_ENDPOINT_XFER_BULK
 	    && desc->bmAttributes != USB_ENDPOINT_XFER_INT) {
 
@@ -1161,16 +1162,16 @@ static struct s3c_udc memory = {
 	},
 	.ep[15] = {
 		.ep = {
-			.name = "ep15-int",
+			.name = "ep15-iso",
 			.ops = &s3c_ep_ops,
 			.maxpacket = EP_FIFO_SIZE2,
 		},
 		.dev = &memory,
 
 		.bEndpointAddress = USB_DIR_IN | 15,
-		.bmAttributes = USB_ENDPOINT_XFER_INT,
+		.bmAttributes = USB_ENDPOINT_XFER_ISOC,
 
-		.ep_type = ep_interrupt,
+		.ep_type = ep_isochronous,
 		.fifo = (unsigned int) S3C_UDC_OTG_EP15_FIFO,
 	},
 };
