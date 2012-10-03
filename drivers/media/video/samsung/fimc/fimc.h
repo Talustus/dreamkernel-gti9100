@@ -477,6 +477,7 @@ struct fimc_control {
 	struct timeval			before_time;
 	char 				cma_name[16];
 	bool				restart;
+	int is_frame_end_irq;
 };
 
 /* global */
