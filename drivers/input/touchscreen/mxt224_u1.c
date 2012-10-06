@@ -1119,7 +1119,7 @@ static int __devinit mxt224_init_touch_driver(struct mxt224_data *data)
 {
 	struct object_t *object_table;
 	u32 read_crc = 0;
-	u32 calc_crc;
+	u32 calc_crc = 0;
 	u16 crc_address;
 	u16 dummy;
 	int i;
@@ -1681,14 +1681,14 @@ static irqreturn_t mxt224_irq_thread(int irq, void *ptr)
 
 		if ((msg[0] == 0x1) &&
 			((msg[1] & 0x10) == 0x10)) {	/* caliration */
-			printk(KERN_ERR "[TSP] Calibration!!!!!!");
+			printk(KERN_ERR "[TSP] Calibration!!!!!!\");
 			Doing_calibration_flag = 1;
 		} else if ((msg[0] == 0x1) &&
 			((msg[1] & 0x40) == 0x40)) { /* overflow */
 			printk(KERN_ERR "[TSP] Overflow!!!!!!");
 		} else if ((msg[0] == 0x1) &&
 			((msg[1] & 0x10) == 0x00)) {	/* caliration */
-			printk(KERN_ERR "[TSP] Calibration End!!!!!!");
+			printk(KERN_ERR "[TSP] Calibration End!!!!!!\");
 
 			Doing_calibration_flag = 0;
 			if (cal_check_flag == 1) {
@@ -2077,33 +2077,17 @@ static ssize_t mov_hysti_store(struct device *dev,
 					const char *buf, size_t count)
 {
 	unsigned int register_value;
-	u8 **tsp_config;
 	char buff[50];
 	int i;
-	
-	//struct i2c_client *client = to_i2c_client(dev);
-//	struct mxt224_data *data = dev_get_drvdata(dev);
-	//struct mxt224_platform_data *pdata = data->client->dev.platform_data;
 	
 	sscanf(buf, "%u", &register_value);
 	
 	// store value in global variable
 	mov_hysti = register_value;
 	
-	/*
-	tsp_config = pdata->config;
-	for (i = 0; tsp_config[i][0] != RESERVED_T255; i++) {
-		if (tsp_config[i][0] == TOUCH_MULTITOUCHSCREEN_T9) {
-			printk(KERN_ERR "[TSP] T9[12]=%u\n", tsp_config[i][12]);
-			tsp_config[i][12] = (u8)register_value;
-			break;
-		}
-	}
-	*/
-	
 	//do not apply if the screen is not active,
 	//it will be applied after turning on the screen anyway -gm
-	if( copy_data->mxt224_enabled == 1)
+	if ( copy_data->mxt224_enabled == 1)
 	{
 		i = sprintf(buff, "%u %u %u", TOUCH_MULTITOUCHSCREEN_T9, 11, register_value);
 		qt602240_object_setting(dev, attr, buff, i);
@@ -2130,7 +2114,6 @@ static ssize_t mov_hysti_show(struct device* dev,
 	ret = get_object_info(data, (u8)object_type, &size, &address);
 	if (ret || size <= 11) {
 		printk(KERN_ERR "[TSP] fail to get object_info\n");
-//		sprintf(buf, "-1\n");
 		return -EINVAL;
 	}
 	
