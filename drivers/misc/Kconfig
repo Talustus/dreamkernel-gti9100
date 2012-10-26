@@ -617,6 +617,12 @@ config USBHUB_USB3503
 	help
 	 Enables USB HUB USB3503
 
+config USBHUB_USB3503_OTG_CONN
+	bool "USB3503 USB HUB Driver"
+	depends on I2C
+	help
+	 Enables USB HUB USB3503
+
 config PN544
         bool "NXP PN544 NFC Controller Driver"
         default n
