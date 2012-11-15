@@ -2,19 +2,17 @@ config ATH6KL
 	tristate "Atheros mobile chipsets support"
 
 config ATH6KL_SDIO
-	tristate "Atheros ath6kl SDIO support"
+	bool "Atheros ath6kl SDIO support"
 	depends on ATH6KL
 	depends on MMC
 	depends on CFG80211
 	---help---
-	  This module adds support for wireless adapters based on
-	  Atheros AR6003 and AR6004 chipsets running over SDIO. If you
-	  choose to build it as a module, it will be called ath6kl_sdio.
-	  Please note that AR6002 and AR6001 are not supported by this
-	  driver.
+	  This option adds support for wireless adapters based on
+	  Atheros AR6003 and AR6004 chipsets running over SDIO. Please
+	  note that AR6002 and AR6001 are not supported by this driver.
 
 config ATH6KL_USB
-	tristate "Atheros ath6kl USB support"
+	bool "Atheros ath6kl USB support"
 	depends on ATH6KL
 	depends on USB
 	depends on CFG80211

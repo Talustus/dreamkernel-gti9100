@@ -476,7 +476,7 @@ static void config_wlan_gpio(void)
 }
 
 void
-wlan_setup_power(int on, int detect)
+wlan_setup_power(int on)
 {
 	printk(KERN_ERR "ATHR - %s %s --enter\n", __func__, on ? "on" : "off");
 
@@ -523,12 +523,10 @@ wlan_setup_power(int on, int detect)
 			, GPIO_WLAN_nRST, gpio_get_value(GPIO_WLAN_nRST));
 	}
 
-	if (detect) {
-		if (wlan_status_notify_cb)
-			wlan_status_notify_cb(wlan_devid, on);
-		else
-			printk(KERN_ERR "ATHR - WLAN: No notify available\n");
-	}
+	if (wlan_status_notify_cb)
+		wlan_status_notify_cb(wlan_devid, on);
+	else
+		printk(KERN_ERR "ATHR - WLAN: No notify available\n");
 }
 EXPORT_SYMBOL(wlan_setup_power);
 
