@@ -223,51 +223,13 @@ struct ath6kl_irq_enable_reg {
 } __packed;
 
 struct ath6kl_device {
+	/* protects irq_proc_reg and irq_en_reg below */
 	spinlock_t lock;
 	struct ath6kl_irq_proc_registers irq_proc_reg;
 	struct ath6kl_irq_enable_reg irq_en_reg;
 	struct htc_target *htc_cnxt;
 	struct ath6kl *ar;
 };
-
-struct ath6kl_sdio {
-	struct sdio_func *func;
-
-	spinlock_t lock;
-
-	/* free list */
-	struct list_head bus_req_freeq;
-
-	/* available bus requests */
-	struct bus_request bus_req[BUS_REQUEST_MAX_NUM];
-
-	struct ath6kl *ar;
-
-	u8 *dma_buffer;
-
-	/* protects access to dma_buffer */
-	struct mutex dma_buffer_mutex;
-
-	/* scatter request list head */
-	struct list_head scat_req;
-
-	atomic_t irq_handling;
-	wait_queue_head_t irq_wq;
-
-	spinlock_t scat_lock;
-	bool scatter_enabled;
-
-	bool is_disabled;
-	const struct sdio_device_id *id;
-	struct work_struct wr_async_work;
-	struct list_head wr_asyncq;
-	spinlock_t wr_async_lock;
-};
-
-static inline struct ath6kl_sdio *ath6kl_sdio_priv(struct ath6kl *ar)
-{
-	return ar->hif_priv;
-}
 
 struct ath6kl_hif_ops {
 	int (*read_write_sync)(struct ath6kl *ar, u32 addr, u8 *buf,
@@ -294,6 +256,12 @@ struct ath6kl_hif_ops {
 	int (*power_on)(struct ath6kl *ar);
 	int (*power_off)(struct ath6kl *ar);
 	void (*stop)(struct ath6kl *ar);
+	int (*pipe_send)(struct ath6kl *ar, u8 pipe, struct sk_buff *hdr_buf,
+			 struct sk_buff *buf);
+	void (*pipe_get_default)(struct ath6kl *ar, u8 *pipe_ul, u8 *pipe_dl);
+	int (*pipe_map_service)(struct ath6kl *ar, u16 service_id, u8 *pipe_ul,
+				u8 *pipe_dl);
+	u16 (*pipe_get_free_queue_number)(struct ath6kl *ar, u8 pipe);
 };
 
 int ath6kl_hif_setup(struct ath6kl_device *dev);
@@ -311,5 +279,4 @@ int ath6kl_hif_intr_bh_handler(struct ath6kl *ar);
 int ath6kl_hif_submit_scat_req(struct ath6kl_device *dev,
 			       struct hif_scatter_req *scat_req, bool read);
 
-int ath6kl_hif_wait_for_pending_recv(struct ath6kl *ar);
 #endif

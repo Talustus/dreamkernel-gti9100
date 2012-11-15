@@ -10,7 +10,7 @@
 #include <linux/wireless.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
-#include <linux/export.h>
+#include <linux/module.h>
 #include <net/iw_handler.h>
 #include <net/arp.h>
 #include <net/wext.h>
@@ -87,7 +87,7 @@ int iw_handler_get_spy(struct net_device *	dev,
 	wrqu->data.length = spydata->spy_number;
 
 	/* Copy addresses. */
-	for (i = 0; i < spydata->spy_number; i++)	{
+	for (i = 0; i < spydata->spy_number; i++) 	{
 		memcpy(address[i].sa_data, spydata->spy_address[i], ETH_ALEN);
 		address[i].sa_family = AF_UNIX;
 	}
@@ -203,7 +203,7 @@ void wireless_spy_update(struct net_device *	dev,
 
 	/* Update all records that match */
 	for (i = 0; i < spydata->spy_number; i++)
-		if (!compare_ether_addr(address, spydata->spy_address[i])) {
+		if (ether_addr_equal(address, spydata->spy_address[i])) {
 			memcpy(&(spydata->spy_stat[i]), wstats,
 			       sizeof(struct iw_quality));
 			match = i;

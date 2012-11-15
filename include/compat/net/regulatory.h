@@ -36,21 +36,29 @@ enum environment_cap {
  * struct regulatory_request - used to keep track of regulatory requests
  *
  * @wiphy_idx: this is set if this request's initiator is
- *	%REGDOM_SET_BY_COUNTRY_IE or %REGDOM_SET_BY_DRIVER. This
- *	can be used by the wireless core to deal with conflicts
- *	and potentially inform users of which devices specifically
- *	cased the conflicts.
+ * 	%REGDOM_SET_BY_COUNTRY_IE or %REGDOM_SET_BY_DRIVER. This
+ * 	can be used by the wireless core to deal with conflicts
+ * 	and potentially inform users of which devices specifically
+ * 	cased the conflicts.
  * @initiator: indicates who sent this request, could be any of
- *	of those set in nl80211_reg_initiator (%NL80211_REGDOM_SET_BY_*)
+ * 	of those set in nl80211_reg_initiator (%NL80211_REGDOM_SET_BY_*)
  * @alpha2: the ISO / IEC 3166 alpha2 country code of the requested
- *	regulatory domain. We have a few special codes:
- *	00 - World regulatory domain
- *	99 - built by driver but a specific alpha2 cannot be determined
- *	98 - result of an intersection between two regulatory domains
+ * 	regulatory domain. We have a few special codes:
+ * 	00 - World regulatory domain
+ * 	99 - built by driver but a specific alpha2 cannot be determined
+ * 	98 - result of an intersection between two regulatory domains
  *	97 - regulatory domain has not yet been configured
+ * @dfs_region: If CRDA responded with a regulatory domain that requires
+ *	DFS master operation on a known DFS region (NL80211_DFS_*),
+ *	dfs_region represents that region. Drivers can use this and the
+ *	@alpha2 to adjust their device's DFS parameters as required.
+ * @user_reg_hint_type: if the @initiator was of type
+ *	%NL80211_REGDOM_SET_BY_USER, this classifies the type
+ *	of hint passed. This could be any of the %NL80211_USER_REG_HINT_*
+ *	types.
  * @intersect: indicates whether the wireless core should intersect
- *	the requested regulatory domain with the presently set regulatory
- *	domain.
+ * 	the requested regulatory domain with the presently set regulatory
+ * 	domain.
  * @processed: indicates whether or not this requests has already been
  *	processed. When the last request is processed it means that the
  *	currently regulatory domain set on cfg80211 is updated from
@@ -58,15 +66,17 @@ enum environment_cap {
  *	the last request is not yet processed we must yield until it
  *	is processed before processing any new requests.
  * @country_ie_checksum: checksum of the last processed and accepted
- *	country IE
+ * 	country IE
  * @country_ie_env: lets us know if the AP is telling us we are outdoor,
- *	indoor, or if it doesn't matter
+ * 	indoor, or if it doesn't matter
  * @list: used to insert into the reg_requests_list linked list
  */
 struct regulatory_request {
 	int wiphy_idx;
 	enum nl80211_reg_initiator initiator;
+	enum nl80211_user_reg_hint_type user_reg_hint_type;
 	char alpha2[2];
+	u8 dfs_region;
 	bool intersect;
 	bool processed;
 	enum environment_cap country_ie_env;
@@ -93,6 +103,7 @@ struct ieee80211_reg_rule {
 struct ieee80211_regdomain {
 	u32 n_reg_rules;
 	char alpha2[2];
+	u8 dfs_region;
 	struct ieee80211_reg_rule reg_rules[];
 };
 
