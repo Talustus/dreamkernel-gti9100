@@ -358,8 +358,7 @@ static int register_wlan_pdev(struct platform_device *pdev)
 	return 0;
 }
 
-#define WLAN_HOST_WAKE
-#ifdef WLAN_HOST_WAKE
+#ifdef CONFIG_HAS_WAKELOCK
 struct wlansleep_info {
 	unsigned host_wake;
 	unsigned host_wake_irq;
@@ -371,9 +370,13 @@ static struct tasklet_struct hostwake_task;
 
 static void wlan_hostwake_task(unsigned long data)
 {
+#if defined(CONFIG_MACH_P8LTE)
+	printk(KERN_INFO "WLAN: wake lock timeout 1 sec...\n");
+	wake_lock_timeout(&wsi->wake_lock, HZ);
+#else
 	printk(KERN_INFO "WLAN: wake lock timeout 0.5 sec...\n");
-
 	wake_lock_timeout(&wsi->wake_lock, HZ / 2);
+#endif
 }
 
 static irqreturn_t wlan_hostwake_isr(int irq, void *dev_id)
@@ -423,7 +426,7 @@ static void wlan_host_wake_exit(void)
 	wake_lock_destroy(&wsi->wake_lock);
 	kfree(wsi);
 }
-#endif /* WLAN_HOST_WAKE */
+#endif /* CONFIG_HAS_WAKELOCK */
 
 static void config_wlan_gpio(void)
 {
@@ -492,14 +495,14 @@ wlan_setup_power(int on)
 		mdelay(30);
 		gpio_direction_output(GPIO_WLAN_nRST, 1);
 
-#ifdef WLAN_HOST_WAKE
+#ifdef CONFIG_HAS_WAKELOCK
 		wlan_host_wake_init();
-#endif /* WLAN_HOST_WAKE */
+#endif /* CONFIG_HAS_WAKELOCK */
 
 	} else {
-#ifdef WLAN_HOST_WAKE
+#ifdef CONFIG_HAS_WAKELOCK
 		wlan_host_wake_exit();
-#endif /* WLAN_HOST_WAKE */
+#endif /* CONFIG_HAS_WAKELOCK */
 
 		gpio_direction_output(GPIO_WLAN_nRST, 0);
 		if (system_rev >= 4)
@@ -6023,7 +6026,7 @@ static void __init smdkc210_usbgadget_init(void)
 		/* P2 EUR OPEN */
 		/*squelch threshold tune [13:11] (000 : +15%) */
 		pdata->phy_tune_mask |= 0x7 << 11;
-		pdata->phy_tune |= 0x0 << 11;
+		pdata->phy_tune |= 0x4 << 11;
 #endif
 		printk(KERN_DEBUG "usb: %s tune_mask=0x%x, tune=0x%x\n",
 			__func__, pdata->phy_tune_mask, pdata->phy_tune);

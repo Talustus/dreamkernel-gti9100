@@ -24,6 +24,12 @@
 #include <linux/sched.h>
 #include <linux/circ_buf.h>
 #include <net/cfg80211.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
+#ifdef CONFIG_HAS_WAKELOCK
+#include <linux/wakelock.h>
+#endif
 #include "htc.h"
 #include "wmi.h"
 #include "bmi.h"
@@ -787,6 +793,16 @@ struct ath6kl {
 		u8 disc_timeout;
 	} debug;
 #endif /* CONFIG_ATH6KL_DEBUG */
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+	bool screen_off;
+#endif /* CONFIG_HAS_EARLYSUSPEND */
+
+#ifdef CONFIG_HAS_WAKELOCK
+	struct wake_lock wake_lock;
+	struct wake_lock p2p_wake_lock;
+#endif /* CONFIG_HAS_WAKELOCK */
 };
 
 static inline struct ath6kl *ath6kl_priv(struct net_device *dev)
@@ -889,7 +905,7 @@ int ath6kl_init_hw_stop(struct ath6kl *ar);
 int ath6kl_init_fetch_firmwares(struct ath6kl *ar);
 int ath6kl_init_hw_params(struct ath6kl *ar);
 
-void ath6kl_check_wow_status(struct ath6kl *ar);
+void ath6kl_check_wow_status(struct ath6kl *ar, struct sk_buff *skb, bool is_event_pkt);
 
 void ath6kl_core_tx_complete(struct ath6kl *ar, struct sk_buff *skb);
 void ath6kl_core_rx_complete(struct ath6kl *ar, struct sk_buff *skb, u8 pipe);

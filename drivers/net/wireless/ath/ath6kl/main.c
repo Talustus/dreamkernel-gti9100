@@ -23,6 +23,14 @@
 #include "target.h"
 #include "debug.h"
 
+#define CMD_SETSUSPENDMODE "SETSUSPENDMODE"
+
+typedef struct android_wifi_priv_cmd {
+    char *buf;
+    int used_len;
+    int total_len;
+} android_wifi_priv_cmd;
+
 struct ath6kl_sta *ath6kl_find_sta(struct ath6kl_vif *vif, u8 *node_addr)
 {
 	struct ath6kl *ar = vif->ar;
@@ -1274,6 +1282,98 @@ out:
 	list_splice_tail(&mc_filter_new, &vif->mc_filter);
 }
 
+static int ath6kl_set_suspendmode(struct net_device *dev,
+					char *command, int total_len)
+{
+	struct ath6kl *ar;
+
+	ar = ath6kl_priv(dev);
+
+	if (*(command + strlen(CMD_SETSUSPENDMODE) + 1) - '0')
+		ath6kl_hif_suspend(ar, NULL);
+	else
+		ath6kl_hif_resume(ar);
+
+	return 0;
+}
+
+static int ath6kl_priv_cmd(struct net_device *net,
+					struct ifreq *ifr, int cmd)
+{
+#define PRIVATE_COMMAND_MAX_LEN	8192
+	int ret = 0;
+	char *command = NULL;
+	int bytes_written = 0;
+	android_wifi_priv_cmd priv_cmd;
+
+	if (!ifr->ifr_data) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	if (copy_from_user(&priv_cmd, ifr->ifr_data, sizeof(android_wifi_priv_cmd))) {
+		ret = -EFAULT;
+		goto exit;
+	}
+	if (priv_cmd.total_len > PRIVATE_COMMAND_MAX_LEN)
+	{
+		ath6kl_err("%s: too long priavte command\n", __func__);
+		ret = -EINVAL;
+	}
+	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	if (!command)
+	{
+		ath6kl_err("%s: failed to allocate memory\n", __func__);
+		ret = -ENOMEM;
+		goto exit;
+	}
+	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	ath6kl_info("%s: Android private cmd \"%s\" on %s\n", __func__, command, ifr->ifr_name);
+
+	if (strnicmp(command, CMD_SETSUSPENDMODE, strlen(CMD_SETSUSPENDMODE)) == 0) {
+		ath6kl_set_suspendmode(net, command, priv_cmd.total_len);
+	} else {
+		ath6kl_err("Unknown PRIVATE command %s - ignored\n", command);
+		snprintf(command, 3, "OK");
+		bytes_written = strlen("OK");
+	}
+
+	if (bytes_written >= 0) {
+		if ((bytes_written == 0) && (priv_cmd.total_len > 0))
+			command[0] = '\0';
+		if (bytes_written >= priv_cmd.total_len) {
+			ath6kl_err("%s: bytes_written = %d\n", __func__, bytes_written);
+			bytes_written = priv_cmd.total_len;
+		} else {
+			bytes_written++;
+		}
+		priv_cmd.used_len = bytes_written;
+		if (copy_to_user(priv_cmd.buf, command, bytes_written)) {
+			ath6kl_err("%s: failed to copy data to user buffer\n", __func__);
+			ret = -EFAULT;
+		}
+	} else
+		ret = bytes_written;
+
+exit:
+	if (command) {
+		kfree(command);
+	}
+
+	return ret;
+}
+
+static int ath6kl_do_ioctl(struct net_device *dev,
+					struct ifreq *ifr, int cmd)
+{
+	if (cmd == SIOCDEVPRIVATE+1)
+		return ath6kl_priv_cmd(dev, ifr, cmd);
+	return -EOPNOTSUPP;
+}
+
 static const struct net_device_ops ath6kl_netdev_ops = {
 	.ndo_open               = ath6kl_open,
 	.ndo_stop               = ath6kl_close,
@@ -1281,6 +1381,7 @@ static const struct net_device_ops ath6kl_netdev_ops = {
 	.ndo_get_stats          = ath6kl_get_stats,
 	.ndo_set_features       = ath6kl_set_features,
 	.ndo_set_rx_mode	= ath6kl_set_multicast_list,
+	.ndo_do_ioctl           = ath6kl_do_ioctl,
 };
 
 void init_netdev(struct net_device *dev)

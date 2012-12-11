@@ -26,6 +26,7 @@
 #include "debug.h"
 #include "hif-ops.h"
 #include "testmode.h"
+#include "pm.h"
 
 #define RATETAB_ENT(_rate, _rateid, _flags) {   \
 	.bitrate    = (_rate),                  \
@@ -1039,6 +1040,13 @@ static int ath6kl_cfg80211_scan(struct wiphy *wiphy,
 		 * supported rates to advertise and xmit rates for
 		 * probe requests
 		 */
+
+#ifdef CONFIG_HAS_WAKELOCK
+		if (request->no_cck) {
+			ath6kl_p2p_release_wakelock(ar);
+			ath6kl_p2p_acquire_wakelock(ar , n_channels * 200);
+		}
+#endif
 		ret = ath6kl_wmi_beginscan_cmd(ar->wmi, vif->fw_vif_idx,
 						WMI_LONG_SCAN, force_fg_scan,
 						false, 0,
@@ -2244,6 +2252,9 @@ static int ath6kl_wow_resume(struct ath6kl *ar)
 
 	ar->state = ATH6KL_STATE_RESUMING;
 
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_timeout(&ar->wake_lock, 5 * HZ);
+#endif
 	ret = ath6kl_wmi_set_host_sleep_mode_cmd(ar->wmi, vif->fw_vif_idx,
 						 ATH6KL_HOST_MODE_AWAKE);
 	if (ret) {
@@ -2477,6 +2488,9 @@ int ath6kl_cfg80211_resume(struct ath6kl *ar)
 		break;
 
 	case ATH6KL_STATE_SCHED_SCAN:
+#ifdef CONFIG_HAS_WAKELOCK
+		wake_lock_timeout(&ar->wake_lock, 30 * HZ);
+#endif
 		break;
 
 	default:
@@ -2521,18 +2535,22 @@ static int __ath6kl_cfg80211_resume(struct wiphy *wiphy)
  *
  * ath6kl_check_wow_status() is called from ath6kl_rx().
  */
-void ath6kl_check_wow_status(struct ath6kl *ar)
+void ath6kl_check_wow_status(struct ath6kl *ar, struct sk_buff *skb,
+	bool is_event_pkt)
 {
 	if (ar->state == ATH6KL_STATE_SUSPENDING)
 		return;
 
-	if (ar->state == ATH6KL_STATE_WOW)
+	if (ar->state == ATH6KL_STATE_WOW || ar->state == ATH6KL_STATE_SCHED_SCAN)
 		ath6kl_cfg80211_resume(ar);
+	else
+		ath6kl_config_suspend_wake_lock(ar, skb, is_event_pkt);
 }
 
 #else
 
-void ath6kl_check_wow_status(struct ath6kl *ar)
+void ath6kl_check_wow_status(struct ath6kl *ar, struct sk_buff *skb,
+	bool is_event_pkt)
 {
 }
 #endif
@@ -2984,6 +3002,11 @@ static int ath6kl_remain_on_channel(struct wiphy *wiphy,
 	struct ath6kl_vif *vif = ath6kl_vif_from_wdev(wdev);
 	struct ath6kl *ar = ath6kl_priv(vif->ndev);
 	u32 id;
+
+#ifdef CONFIG_HAS_WAKELOCK
+	ath6kl_p2p_release_wakelock(ar);
+	ath6kl_p2p_acquire_wakelock(ar , duration + 100);
+#endif
 
 	/* TODO: if already pending or ongoing remain-on-channel,
 	 * return -EBUSY */
@@ -3641,6 +3664,8 @@ int ath6kl_cfg80211_init(struct ath6kl *ar)
 
 	wiphy->max_sched_scan_ssids = MAX_PROBED_SSIDS;
 
+	ath6kl_setup_android_resource(ar);
+
 	ar->wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM |
 			    WIPHY_FLAG_HAVE_AP_SME |
 			    WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL |
@@ -3699,6 +3724,8 @@ struct ath6kl *ath6kl_cfg80211_create(void)
 void ath6kl_cfg80211_destroy(struct ath6kl *ar)
 {
 	int i;
+
+	ath6kl_cleanup_android_resource(ar);
 
 	for (i = 0; i < AP_MAX_NUM_STA; i++)
 		kfree(ar->sta_list[i].aggr_conn);

@@ -74,6 +74,10 @@ struct ath6kl_sdio {
 #define CMD53_ARG_FIXED_ADDRESS 0
 #define CMD53_ARG_INCR_ADDRESS  1
 
+#ifdef CONFIG_MACH_PX
+extern void wlan_setup_power(int on);
+#endif
+
 static inline struct ath6kl_sdio *ath6kl_sdio_priv(struct ath6kl *ar)
 {
 	return ar->hif_priv;
@@ -776,6 +780,30 @@ static int ath6kl_sdio_config(struct ath6kl *ar)
 
 	sdio_claim_host(func);
 
+	/* give us some time to enable, in ms */
+	func->enable_timeout = 100;
+
+	ret = sdio_set_block_size(func, HIF_MBOX_BLOCK_SIZE);
+	if (ret) {
+		ath6kl_err("Set sdio block size %d failed: %d)\n",
+			   HIF_MBOX_BLOCK_SIZE, ret);
+		goto out;
+	}
+
+out:
+	sdio_release_host(func);
+
+	return ret;
+}
+
+static int ath6kl_sdio_setup_irq_mode(struct ath6kl *ar)
+{
+	struct ath6kl_sdio *ar_sdio = ath6kl_sdio_priv(ar);
+	struct sdio_func *func = ar_sdio->func;
+	int ret = 0;
+
+	sdio_claim_host(func);
+
 	if ((ar_sdio->id->device & MANUFACTURER_ID_ATH6KL_BASE_MASK) >=
 	    MANUFACTURER_ID_AR6003_BASE) {
 		/* enable 4-bit ASYNC interrupt on AR6003 or later */
@@ -789,16 +817,6 @@ static int ath6kl_sdio_config(struct ath6kl *ar)
 		}
 
 		ath6kl_dbg(ATH6KL_DBG_BOOT, "4-bit async irq mode enabled\n");
-	}
-
-	/* give us some time to enable, in ms */
-	func->enable_timeout = 100;
-
-	ret = sdio_set_block_size(func, HIF_MBOX_BLOCK_SIZE);
-	if (ret) {
-		ath6kl_err("Set sdio block size %d failed: %d)\n",
-			   HIF_MBOX_BLOCK_SIZE, ret);
-		goto out;
 	}
 
 out:
@@ -818,9 +836,11 @@ static int ath6kl_set_sdio_pm_caps(struct ath6kl *ar)
 
 	ath6kl_dbg(ATH6KL_DBG_SUSPEND, "sdio suspend pm_caps 0x%x\n", flags);
 
+#ifndef CONFIG_MACH_PX
 	if (!(flags & MMC_PM_WAKE_SDIO_IRQ) ||
 	    !(flags & MMC_PM_KEEP_POWER))
 		return -EINVAL;
+#endif
 
 	ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
 	if (ret) {
@@ -840,7 +860,9 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 {
 	struct ath6kl_sdio *ar_sdio = ath6kl_sdio_priv(ar);
 	struct sdio_func *func = ar_sdio->func;
+#ifndef CONFIG_MACH_PX
 	mmc_pm_flag_t flags;
+#endif
 	bool try_deepsleep = false;
 	int ret;
 
@@ -885,6 +907,11 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 	if (ar->suspend_mode == WLAN_POWER_STATE_DEEP_SLEEP ||
 	    !ar->suspend_mode || try_deepsleep) {
 
+#ifdef CONFIG_MACH_PX
+		ret = ath6kl_set_sdio_pm_caps(ar);
+		if (ret)
+			goto cut_pwr;
+#else
 		flags = sdio_get_host_pm_caps(func);
 		if (!(flags & MMC_PM_KEEP_POWER))
 			goto cut_pwr;
@@ -905,6 +932,7 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 			if (ret)
 				goto cut_pwr;
 		}
+#endif
 
 		ret = ath6kl_cfg80211_suspend(ar, ATH6KL_CFG_SUSPEND_DEEPSLEEP,
 					      NULL);
@@ -923,6 +951,8 @@ cut_pwr:
 
 static int ath6kl_sdio_resume(struct ath6kl *ar)
 {
+	ath6kl_sdio_setup_irq_mode(ar);
+
 	switch (ar->state) {
 	case ATH6KL_STATE_OFF:
 	case ATH6KL_STATE_CUTPOWER:
@@ -1275,16 +1305,43 @@ static const struct ath6kl_hif_ops ath6kl_sdio_ops = {
  */
 static int ath6kl_sdio_pm_suspend(struct device *device)
 {
+	int ret = 0;
+#ifdef CONFIG_MACH_PX
+	struct sdio_func *func;
+	struct ath6kl_sdio *ar_sdio;
+#endif
+
 	ath6kl_dbg(ATH6KL_DBG_SUSPEND, "sdio pm suspend\n");
 
-	return 0;
+#ifdef CONFIG_MACH_PX
+	func = dev_to_sdio_func(device);
+	ar_sdio = sdio_get_drvdata(func);
+
+	sdio_release_host(func);
+	ret = ath6kl_sdio_suspend(ar_sdio->ar, NULL);
+	sdio_claim_host(func);
+#endif
+
+	return ret;
 }
 
 static int ath6kl_sdio_pm_resume(struct device *device)
 {
+	int ret = 0;
+#ifdef CONFIG_MACH_PX
+	struct sdio_func *func;
+	struct ath6kl_sdio *ar_sdio;
+#endif
 	ath6kl_dbg(ATH6KL_DBG_SUSPEND, "sdio pm resume\n");
 
-	return 0;
+#ifdef CONFIG_MACH_PX
+	func = dev_to_sdio_func(device);
+	ar_sdio = sdio_get_drvdata(func);
+
+	ret = ath6kl_sdio_resume(ar_sdio->ar);
+#endif
+
+	return ret;
 }
 
 static SIMPLE_DEV_PM_OPS(ath6kl_sdio_pm_ops, ath6kl_sdio_pm_suspend,
@@ -1358,6 +1415,12 @@ static int ath6kl_sdio_probe(struct sdio_func *func,
 
 	ath6kl_sdio_set_mbox_info(ar);
 
+	ret = ath6kl_sdio_setup_irq_mode(ar);
+	if (ret) {
+		ath6kl_err("Failed to setup sdio irq mode: %d\n", ret);
+		goto err_core_alloc;
+	}
+
 	ret = ath6kl_sdio_config(ar);
 	if (ret) {
 		ath6kl_err("Failed to config sdio: %d\n", ret);
@@ -1420,16 +1483,13 @@ static struct sdio_driver ath6kl_sdio_driver = {
 	.drv.pm = ATH6KL_SDIO_PM_OPS,
 };
 
-#ifdef CONFIG_MACH_PX
-extern void wlan_setup_power(int on);
-#endif
-
 static int __init ath6kl_sdio_init(void)
 {
 	int ret;
 
 #ifdef CONFIG_MACH_PX
 	wlan_setup_power(1);
+	mdelay(50);
 #endif
 	ret = sdio_register_driver(&ath6kl_sdio_driver);
 	if (ret)
@@ -1443,6 +1503,7 @@ static void __exit ath6kl_sdio_exit(void)
 	sdio_unregister_driver(&ath6kl_sdio_driver);
 #ifdef CONFIG_MACH_PX
 	wlan_setup_power(0);
+	mdelay(1000);
 #endif
 }
 
