@@ -59,12 +59,13 @@
 /* Be careful!! below sequence shouldn't be changed*/
 enum modem_state {
 	STATE_OFFLINE,
-	__UNUSED__,
+	STATE_CRASH_RESET,
 	STATE_CRASH_EXIT,
 	STATE_BOOTING,
 	STATE_ONLINE,
 	STATE_NV_REBUILDING,
 	STATE_LOADER_DONE,
+	STATE_EXIT_RESET = 10,
 };
 
 enum {

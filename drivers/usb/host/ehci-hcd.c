@@ -68,7 +68,9 @@
 #define DRIVER_DESC "USB 2.0 'Enhanced' Host Controller (EHCI) Driver"
 
 static const char	hcd_name [] = "ehci_hcd";
-
+#ifdef CONFIG_MACH_P8LTE
+int p8lte_ehci_hcd_died;
+#endif
 
 #undef VERBOSE_DEBUG
 #undef EHCI_URB_TRACE
@@ -930,6 +932,9 @@ dead:
 		 * uses ehci_stop to clean up the rest
 		 */
 		bh = 1;
+#ifdef CONFIG_MACH_P8LTE
+		p8lte_ehci_hcd_died = 1;
+#endif
 	}
 
 	if (bh)
@@ -1449,4 +1454,22 @@ static void __exit ehci_hcd_cleanup(void)
 	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
 }
 module_exit(ehci_hcd_cleanup);
+
+#ifdef CONFIG_MACH_P8LTE
+int reset_p8lte_s5p_ehci(void)
+{
+	if(p8lte_ehci_hcd_died)
+	{
+		printk(KERN_EMERG "In %s Function\n", __func__);
+
+		platform_driver_unregister(&PLATFORM_DRIVER);
+		msleep(300);
+		platform_driver_register(&PLATFORM_DRIVER);
+		msleep(300);
+		p8lte_ehci_hcd_died = 0;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(reset_p8lte_s5p_ehci);
+#endif
 

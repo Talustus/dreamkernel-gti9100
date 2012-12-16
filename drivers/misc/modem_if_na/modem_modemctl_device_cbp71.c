@@ -93,7 +93,7 @@ static int cbp71_on(struct modem_ctl *mc)
 	gpio_set_value(mc->gpio_cp_off, GPIO_LEVEL_LOW);
 	mdelay(600);
 	gpio_set_value(mc->gpio_cp_reset, GPIO_LEVEL_HIGH);
-	gpio_set_value(mc->gpio_cp_on, GPIO_LEVEL_HIGH);
+	gpio_set_value(mc->gpio_cp_off, GPIO_LEVEL_HIGH);
 
 
 	mc->iod->modem_state_changed(mc->iod, STATE_BOOTING);
@@ -136,12 +136,15 @@ static int cbp71_on(struct modem_ctl *mc)
 static int cbp71_off(struct modem_ctl *mc)
 {
 	int phone_wait_cnt = 0;
-	pr_err("MIF : cbp71_off()\n");
+	pr_err("MIF :cbp71_off(). \n");
 
 	if (!mc->gpio_cp_off || !mc->gpio_cp_reset || !mc->gpio_phone_active) {
 		pr_err("MIF : no gpio data\n");
 		return -ENXIO;
 	}
+
+	gpio_set_value(mc->gpio_cp_on, 0);
+	gpio_direction_input(mc->gpio_phone_active);
 
 	/* confirm phone off */
 	while (1) {
@@ -159,7 +162,7 @@ static int cbp71_off(struct modem_ctl *mc)
 				break;
 			}
 			phone_wait_cnt++;
-			msleep(100);
+			msleep(1000);
 		} else {
 			pr_info("MIF:<%s> PHONE OFF Success\n", __func__);
 			break;
