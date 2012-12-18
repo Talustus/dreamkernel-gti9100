@@ -53,6 +53,9 @@ void ath6kl_core_rx_complete(struct ath6kl *ar, struct sk_buff *skb, u8 pipe)
 }
 EXPORT_SYMBOL(ath6kl_core_rx_complete);
 
+#ifdef CONFIG_MACH_PX
+extern void ath6kl_mangle_mac_address(struct ath6kl *ar);
+#endif
 int ath6kl_core_init(struct ath6kl *ar, enum ath6kl_htc_type htc_type)
 {
 	struct ath6kl_bmi_target_info targ_info;
@@ -112,6 +115,10 @@ int ath6kl_core_init(struct ath6kl *ar, enum ath6kl_htc_type htc_type)
 	ret = ath6kl_init_fetch_firmwares(ar);
 	if (ret)
 		goto err_htc_cleanup;
+
+#ifdef CONFIG_MACH_PX
+	ath6kl_mangle_mac_address(ar);
+#endif
 
 	/* FIXME: we should free all firmwares in the error cases below */
 
