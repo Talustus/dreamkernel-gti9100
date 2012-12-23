@@ -35,10 +35,16 @@
 
 #define URB_COUNT	4
 
+extern int factory_mode;
+
 static int enable_autosuspend;
+static int wakelock_held;
 
 static int usb_tx_urb_with_skb(struct usb_link_device *usb_ld,
 		struct sk_buff *skb, struct if_usb_devdata *pipe_data);
+
+static void
+usb_change_modem_state(struct usb_link_device *usb_ld, enum modem_state state);
 
 static int usb_attach_io_dev(struct link_device *ld,
 			struct io_device *iod)
@@ -91,15 +97,16 @@ static int usb_init_communication(struct link_device *ld,
 		ld->com_state = COM_ONLINE;
 		break;
 	}
-
-	mif_debug("com_state = %d\n", ld->com_state);
+	if (iod->format != IPC_BOOT && iod->format != IPC_RAMDUMP)
+		mif_debug("com_state = %d\n", ld->com_state);
 	return err;
 }
 
 static void usb_terminate_communication(
 			struct link_device *ld, struct io_device *iod)
 {
-	mif_debug("com_state = %d\n", ld->com_state);
+	if (iod->format != IPC_BOOT && iod->format != IPC_RAMDUMP)
+		mif_debug("com_state = %d\n", ld->com_state);
 }
 
 static int usb_rx_submit(struct if_usb_devdata *pipe, struct urb *urb,
@@ -400,6 +407,7 @@ static void usb_tx_work(struct work_struct *work)
 				mif_err("usb_tx_urb_with_skb, ret(%d)\n",
 					ret);
 				skb_queue_head(&ld->sk_fmt_tx_q, skb);
+
 				return;
 			}
 		}
@@ -434,8 +442,10 @@ static int if_usb_suspend(struct usb_interface *intf, pm_message_t message)
 		if (usb_ld->link_pm_data->cpufreq_unlock)
 			usb_ld->link_pm_data->cpufreq_unlock();
 		*/
-
+		if (wakelock_held) {
+			wakelock_held = 0;
 		wake_unlock(&usb_ld->susplock);
+	}
 	}
 
 	return 0;
@@ -470,8 +480,24 @@ static void wait_enumeration_work(struct work_struct *work)
 {
 	struct usb_link_device *usb_ld = container_of(work,
 		struct usb_link_device, wait_enumeration.work);
+
+	/* Work around code for factory device test & verification.
+	 * To measure device sleep current speedly, do not call silent reset in
+	 * factory mode. CMC22x disconect usb forcely and go sleep
+	 * without normal L3 process if in factory mode. Also AP do. */
+	if (factory_mode)
+		return;
+
 	if (usb_ld->if_usb_connected == 0) {
 		mif_err("USB disconnected and not enumerated for long time\n");
+#ifdef CONFIG_MACH_P8LTE
+	if(p8lte_ehci_hcd_died)
+	{
+		usb_change_modem_state(usb_ld, STATE_CRASH_RESET);
+		SET_HOST_ACTIVE(usb_ld->pdata, 1);
+	}
+	else
+#endif
 		usb_change_modem_state(usb_ld, STATE_CRASH_EXIT);
 	}
 }
@@ -490,6 +516,7 @@ static int if_usb_resume(struct usb_interface *intf)
 
 		mif_debug("\n");
 		wake_lock(&usb_ld->susplock);
+		wakelock_held = 1;
 
 		/* HACK: Runtime pm does not allow requesting autosuspend from
 		 * resume callback, delayed it after resume */
@@ -578,7 +605,10 @@ static void if_usb_disconnect(struct usb_interface *intf)
 	smp_wmb();
 
 	wake_up(&usb_ld->l2_wait);
-
+	if (wakelock_held) {
+		wakelock_held = 0;
+		wake_unlock(&usb_ld->susplock);
+	}
 	/*
 	if (usb_ld->if_usb_connected) {
 		disable_irq_wake(usb_ld->pdata->irq_host_wakeup);
@@ -605,7 +635,15 @@ static void if_usb_disconnect(struct usb_interface *intf)
 		cancel_work_sync(&usb_ld->disconnect_work);
 		usb_put_dev(usbdev);
 		usb_ld->usbdev = NULL;
-		schedule_delayed_work(&usb_ld->wait_enumeration,
+		if(!factory_mode)
+			wake_lock(&usb_ld->link_pm_data->boot_wake);
+#ifdef CONFIG_MACH_P8LTE
+		if (p8lte_ehci_hcd_died)
+			schedule_delayed_work(&usb_ld->wait_enumeration,
+				msecs_to_jiffies(10000));
+		else
+#endif
+			schedule_delayed_work(&usb_ld->wait_enumeration,
 				WAIT_ENUMURATION_TIMEOUT_JIFFIES);
 	}
 }
@@ -731,12 +769,17 @@ static int __devinit if_usb_probe(struct usb_interface *intf,
 	usb_ld->host_wake_timeout_flag = 0;
 
 	if (gpio_get_value(usb_ld->pdata->gpio_phone_active)) {
+		struct link_pm_data *pm_data = usb_ld->link_pm_data;
 		int delay = AUTOSUSPEND_DELAY_MS;
 		pm_runtime_set_autosuspend_delay(&usbdev->dev, delay);
 		dev = &usb_ld->usbdev->dev;
 		if (dev->parent) {
 			dev_dbg(&usbdev->dev, "if_usb Runtime PM Start!!\n");
 			usb_enable_autosuspend(usb_ld->usbdev);
+			pm_runtime_allow(dev);
+
+			if (pm_data->block_autosuspend)
+				pm_runtime_forbid(dev);
 		}
 
 		enable_irq_wake(usb_ld->pdata->irq_host_wakeup);
@@ -745,6 +788,8 @@ static int __devinit if_usb_probe(struct usb_interface *intf,
 		/* Queue work if skbs were pending before a disconnect/probe */
 		if (ld->sk_fmt_tx_q.qlen || ld->sk_raw_tx_q.qlen)
 			queue_delayed_work(ld->tx_wq, &ld->tx_delayed_work, 0);
+
+		wake_unlock(&usb_ld->link_pm_data->boot_wake);
 
 		usb_ld->if_usb_connected = 1;
 		usb_change_modem_state(usb_ld, STATE_ONLINE);
@@ -771,6 +816,14 @@ irqreturn_t usb_resume_irq(int irq, void *data)
 	static int wake_status = -1;
 	struct device *dev;
 
+#ifdef CONFIG_MACH_P8LTE
+	if(p8lte_ehci_hcd_died)
+	{
+		/* mif_err("EHCI HC died, ignoring interrupt");*/
+
+		return IRQ_HANDLED;
+	}
+#endif
 	hwup = gpio_get_value(usb_ld->pdata->gpio_host_wakeup);
 	if (hwup == wake_status) {
 		mif_err("Received spurious wake irq: %d", hwup);
@@ -922,6 +975,7 @@ struct link_device *usb_create_link_device(void *data)
 	ret = if_usb_init(usb_ld);
 	if (ret)
 		goto err;
+
 
 	return ld;
 err:

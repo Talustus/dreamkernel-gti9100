@@ -39,7 +39,7 @@ static int cmc220_on(struct modem_ctl *mc)
 	msleep(300);
 	gpio_set_value(mc->gpio_cp_reset, 1);
 	msleep(100);
-	gpio_set_value(mc->gpio_cp_off, 0);
+	gpio_set_value(mc->gpio_cp_off, 1);
 	msleep(300);
 	mc->phone_state = STATE_BOOTING;
 	return 0;
@@ -56,9 +56,10 @@ static int cmc220_off(struct modem_ctl *mc)
 
 	gpio_set_value(mc->gpio_cp_on, 0);
 	msleep(100);
-	gpio_set_value(mc->gpio_cp_off, 1);
-	msleep(100);
 	gpio_set_value(mc->gpio_cp_reset, 0);
+	msleep(100);
+	gpio_set_value(mc->gpio_cp_off, 0);
+
 
 	mc->phone_state = STATE_OFFLINE;
 
@@ -104,14 +105,13 @@ static int cmc220_reset(struct modem_ctl *mc)
 	if (!mc->gpio_cp_reset)
 		return -ENXIO;
 
-	if (cmc220_off(mc))
-		return -ENXIO;
+	gpio_set_value(mc->gpio_host_active, 1);
+	gpio_set_value(mc->gpio_cp_reset, 0);
 	msleep(100);
-	if (cmc220_on(mc))
-		return -ENXIO;
-
+	gpio_set_value(mc->gpio_cp_reset, 1);
+	msleep(100);
+	gpio_set_value(mc->gpio_host_active, 1);
 	mc->phone_state = STATE_BOOTING;
-
 	return 0;
 }
 
@@ -226,8 +226,7 @@ int cmc220_init_modemctl_device(struct modem_ctl *mc,
 	mc->gpio_host_wakeup = pdata->gpio_host_wakeup;
 
 	pdev = to_platform_device(mc->dev);
-	mc->irq_phone_active = platform_get_irq(pdev, 0);
-	mc->irq_host_wakeup = platform_get_irq(pdev, 1);
+	mc->irq_phone_active = gpio_to_irq(mc->gpio_phone_active);
 
 	cmc220_get_ops(mc);
 
@@ -237,7 +236,7 @@ int cmc220_init_modemctl_device(struct modem_ctl *mc,
 
 	ret = request_irq(mc->irq_phone_active, phone_active_irq_handler,
 			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-			"phone_active", mc);
+			"lte_phone_active", mc);
 	if (ret) {
 		pr_err("[MODEM_IF] Failed to allocate an interrupt(%d)\n",
 							mc->irq_phone_active);

@@ -1300,7 +1300,7 @@ dpram_download(struct dpram_link_device *dpld, const char *buf, int len)
 		mif_err("[GOTA] CP didn't send UPDATE_DONE_NOTIFICATION\n");
 		return -ENXIO;
 	}
-
+	dpram_clear(dpld);
 	return 0;
 }
 
