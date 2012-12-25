@@ -127,9 +127,14 @@ config SND_SOC_SLP_TRATS_MC1N2
 config SND_SOC_SAMSUNG_USE_DMA_WRAPPER
 	bool "DMA wrapper for ALSA Platform(DMA)"
 
+config SND_SOC_SAMSUNG_SEC_FIFO
+	bool "Enable Sec_Fifo Secondary DAI"
+	depends on SND_SAMSUNG_LP || SND_SAMSUNG_ALP
+	select SND_SOC_SAMSUNG_I2S_SEC
+
 config SND_SOC_SAMSUNG_I2S_SEC
 	bool "I2S operate secondary FIFO"
-        depends on SND_SAMSUNG_LP || SND_SAMSUNG_ALP
+	depends on SND_SOC_SAMSUNG_SEC_FIFO
 
 choice
 	prompt "Samsung I2S Audio type"
