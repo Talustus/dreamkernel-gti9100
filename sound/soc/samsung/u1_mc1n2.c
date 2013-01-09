@@ -191,6 +191,7 @@ static struct snd_soc_ops u1_hifi_ops = {
 
 static struct snd_soc_dai_link u1_dai[] = {
 #if defined(CONFIG_SND_SAMSUNG_LP) || defined(CONFIG_SND_SAMSUNG_ALP)
+#ifdef CONFIG_SND_SOC_SAMSUNG_SEC_FIFO
 	{ /* Sec_Fifo DAI i/f */
 		.name = "MC1N2 Sec_FIFO TX",
 		.stream_name = "Sec_Dai",
@@ -205,6 +206,7 @@ static struct snd_soc_dai_link u1_dai[] = {
 		.init = u1_hifiaudio_init,
 		.ops = &u1_hifi_ops,
 	},
+#endif
 #endif
 	{ /* Primary DAI i/f */
 		.name = "MC1N2 AIF1",
