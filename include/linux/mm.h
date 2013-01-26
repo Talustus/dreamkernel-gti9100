@@ -448,7 +448,11 @@ void put_page(struct page *page);
 void put_pages_list(struct list_head *pages);
 
 void split_page(struct page *page, unsigned int order);
+#ifndef CONFIG_DMA_CMA
 int split_free_page(struct page *page);
+#else
+int split_free_page(struct page *page, bool for_cma);
+#endif
 
 /*
  * Compound pages have a destructor function.  Provide a
@@ -1074,14 +1078,50 @@ static inline void add_mm_counter(struct mm_struct *mm, int member, long value)
 	atomic_long_add(value, &mm->rss_stat.count[member]);
 }
 
+#ifdef CONFIG_LOWMEM_CHECK
+#ifdef CONFIG_HIGHMEM
+static inline int is_lowmem_page(struct page *page)
+{
+	if (page_zonenum(page) == ZONE_HIGHMEM)
+		return 0;
+	return 1;
+}
+#else
+static inline int is_lowmem_page(struct page *page)
+{
+	return 1;
+}
+#endif
+#endif
+
+#ifdef CONFIG_LOWMEM_CHECK
+static inline void inc_mm_counter(struct mm_struct *mm, int member, struct page *page)
+#else
 static inline void inc_mm_counter(struct mm_struct *mm, int member)
+#endif
 {
 	atomic_long_inc(&mm->rss_stat.count[member]);
+#ifdef CONFIG_LOWMEM_CHECK
+	if (is_lowmem_page(page)) {
+		member += LOWMEM_COUNTER;
+		atomic_long_inc(&mm->rss_stat.count[member]);
+	}
+#endif
 }
 
+#ifdef CONFIG_LOWMEM_CHECK
+static inline void dec_mm_counter(struct mm_struct *mm, int member, struct page *page)
+#else
 static inline void dec_mm_counter(struct mm_struct *mm, int member)
+#endif
 {
 	atomic_long_dec(&mm->rss_stat.count[member]);
+#ifdef CONFIG_LOWMEM_CHECK
+	if (is_lowmem_page(page)) {
+		member += LOWMEM_COUNTER;
+		atomic_long_dec(&mm->rss_stat.count[member]);
+	}
+#endif
 }
 
 static inline unsigned long get_mm_rss(struct mm_struct *mm)
@@ -1603,6 +1643,9 @@ int in_gate_area_no_mm(unsigned long addr);
 #define in_gate_area(mm, addr) ({(void)mm; in_gate_area_no_mm(addr);})
 #endif	/* __HAVE_ARCH_GATE_AREA */
 
+#ifdef CONFIG_DMA_CMA
+void perform_drop_caches(unsigned int mode);
+#endif
 int drop_caches_sysctl_handler(struct ctl_table *, int,
 					void __user *, size_t *, loff_t *);
 unsigned long shrink_slab(struct shrink_control *shrink,

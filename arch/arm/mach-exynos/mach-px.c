@@ -61,8 +61,6 @@
 #include <linux/android_pmem.h>
 #endif
 
-#include <linux/exynos_mem.h>
-
 #include <asm/mach/arch.h>
 #include <asm/mach-types.h>
 
@@ -229,6 +227,7 @@ static struct wacom_g5_callbacks *wacom_callbacks;
 #include <linux/usb/hcd.h>
 #include <linux/platform_data/usb3503_otg_conn.h>
 #endif
+
 
 static struct charging_status_callbacks {
 	void (*tsp_set_charging_cable) (int type);
@@ -1518,6 +1517,7 @@ static struct s5k5bafx_platform_data s5k5bafx_plat = {
 	.freq = 24000000,
 	.is_mipi = 1,
 	.streamoff_delay = S5K5BAFX_STREAMOFF_DELAY,
+	.init_streamoff = false,
 	.dbg_level = CAMDBG_LEVEL_DEFAULT,
 };
 #define FRONT_CAM_PLAT		(s5k5bafx_plat)
@@ -3055,8 +3055,8 @@ static struct mpu3050_platform_data mpu3050_pdata = {
 			1, 0, 0,
 			0, 0, 1},
 #elif defined(CONFIG_MACH_P2)
-	.orientation = {0, 1, 0,
-			1, 0, 0,
+	.orientation = {1, 0, 0,
+			0, -1, 0,
 			0, 0, -1},
 #elif defined(CONFIG_MACH_P4)
 	.orientation = {1 , 0, 0,
@@ -3087,8 +3087,8 @@ static struct mpu3050_platform_data mpu3050_pdata = {
 				-1, 0, 0,
 				0, 0, 1},
 #elif defined(CONFIG_MACH_P2)
-		.orientation = {0, 1, 0,
-				1, 0, 0,
+		.orientation = {1, 0, 0,
+				0, -1, 0,
 				0, 0, -1},
 #elif defined(CONFIG_MACH_P4)
 		.orientation = {0, -1, 0,
@@ -3111,8 +3111,8 @@ static struct mpu3050_platform_data mpu3050_pdata = {
 		 * 90 degrees clockwise from natural orientation.
 		 * So X & Y are swapped and Y & Z are negated.
 		 */
-		.orientation = {0, -1, 0,
-				1, 0, 0,
+		.orientation = {1, 0, 0,
+				0, 1, 0,
 				0, 0, 1},
 	},
 
@@ -6024,7 +6024,7 @@ static void __init smdkc210_usbgadget_init(void)
 		pdata->phy_tune |= 0x1 << 11;
 #elif defined(CONFIG_TARGET_LOCALE_P2EUR_TEMP)
 		/* P2 EUR OPEN */
-		/*squelch threshold tune [13:11] (000 : +15%) */
+		/*squelch threshold tune [13:11] (100 : -5%) */
 		pdata->phy_tune_mask |= 0x7 << 11;
 		pdata->phy_tune |= 0x4 << 11;
 #endif
@@ -6342,6 +6342,7 @@ static struct i2c_board_info i2c_devs17_emul[] __initdata = {
 };
 #endif
 
+
 #ifdef CONFIG_30PIN_CONN
 static void smdk_accessory_gpio_init(void)
 {
@@ -6411,6 +6412,7 @@ if (system_rev >= 4)
 		acc_en_token |= (1 << token);
 		enable = true;
 		gpio_direction_output(gpio_acc_en, 1);
+		usleep_range(2000, 2000);
 
 		if (0 != gpio_acc_5v) {
 			gpio_request(gpio_acc_5v, "gpio_acc_5v");
@@ -6471,6 +6473,16 @@ static int check_sec_keyboard_dock(bool attached)
 	return 0;
 }
 
+/* call 30pin func. from sec_keyboard */
+static struct sec_30pin_callbacks *s30pin_callbacks;
+static int noti_sec_univ_kbd_dock(bool attached)
+{
+	if (s30pin_callbacks && s30pin_callbacks->noti_univ_kdb_dock)
+		return s30pin_callbacks->
+			noti_univ_kdb_dock(s30pin_callbacks, attached);
+	return 0;
+}
+
 static void check_uart_path(bool en)
 {
 	int gpio_uart_sel;
@@ -6498,6 +6510,11 @@ static void check_uart_path(bool en)
 		gpio_get_value(gpio_uart_sel));
 }
 
+static void sec_30pin_register_cb(struct sec_30pin_callbacks *cb)
+{
+	 s30pin_callbacks = cb;
+}
+
 static void sec_keyboard_register_cb(struct sec_keyboard_callbacks *cb)
 {
 	keyboard_callbacks = cb;
@@ -6508,6 +6525,7 @@ static struct sec_keyboard_platform_data kbd_pdata = {
 	.acc_power = smdk_accessory_power,
 	.check_uart_path = check_uart_path,
 	.register_cb = sec_keyboard_register_cb,
+	.noti_univ_kbd_dock = noti_sec_univ_kbd_dock,
 	.wakeup_key = NULL,
 };
 
@@ -6633,6 +6651,7 @@ struct acc_con_platform_data acc_con_pdata = {
 #ifdef CONFIG_SEC_KEYBOARD_DOCK
 	.check_keyboard = check_sec_keyboard_dock,
 #endif
+	.register_cb = sec_30pin_register_cb,
 	.accessory_irq_gpio = GPIO_ACCESSORY_INT,
 	.dock_irq_gpio = GPIO_DOCK_INT,
 #ifdef CONFIG_MHL_SII9234
@@ -6660,6 +6679,77 @@ static struct platform_device watchdog_reset_device = {
 	.id = -1,
 };
 #endif
+
+#ifdef CONFIG_CORESIGHT_ETM
+
+#define CORESIGHT_PHYS_BASE             0x10880000
+#define CORESIGHT_ETB_PHYS_BASE         (CORESIGHT_PHYS_BASE + 0x1000)
+#define CORESIGHT_TPIU_PHYS_BASE        (CORESIGHT_PHYS_BASE + 0x3000)
+#define CORESIGHT_FUNNEL_PHYS_BASE      (CORESIGHT_PHYS_BASE + 0x4000)
+#define CORESIGHT_ETM_PHYS_BASE         (CORESIGHT_PHYS_BASE + 0x1C000)
+
+static struct resource coresight_etb_resources[] = {
+	{
+		.start = CORESIGHT_ETB_PHYS_BASE,
+		.end   = CORESIGHT_ETB_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device coresight_etb_device = {
+	.name          = "coresight_etb",
+	.id            = -1,
+	.num_resources = ARRAY_SIZE(coresight_etb_resources),
+	.resource      = coresight_etb_resources,
+};
+
+static struct resource coresight_tpiu_resources[] = {
+	{
+		.start = CORESIGHT_TPIU_PHYS_BASE,
+		.end   = CORESIGHT_TPIU_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device coresight_tpiu_device = {
+	.name          = "coresight_tpiu",
+	.id            = -1,
+	.num_resources = ARRAY_SIZE(coresight_tpiu_resources),
+	.resource      = coresight_tpiu_resources,
+};
+
+static struct resource coresight_funnel_resources[] = {
+	{
+		.start = CORESIGHT_FUNNEL_PHYS_BASE,
+		.end   = CORESIGHT_FUNNEL_PHYS_BASE + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device coresight_funnel_device = {
+	.name          = "coresight_funnel",
+	.id            = -1,
+	.num_resources = ARRAY_SIZE(coresight_funnel_resources),
+	.resource      = coresight_funnel_resources,
+};
+
+static struct resource coresight_etm_resources[] = {
+	{
+		.start = CORESIGHT_ETM_PHYS_BASE,
+		.end   = CORESIGHT_ETM_PHYS_BASE + (SZ_4K * 2) - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device coresight_etm_device = {
+	.name          = "coresight_etm",
+	.id            = -1,
+	.num_resources = ARRAY_SIZE(coresight_etm_resources),
+	.resource      = coresight_etm_resources,
+};
+
+#endif
+
 static struct platform_device *smdkc210_devices[] __initdata = {
 #ifdef CONFIG_SEC_WATCHDOG_RESET
 	&watchdog_reset_device,
@@ -6925,6 +7015,12 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 	&sec_keyboard,
 #endif
 #endif
+#ifdef CONFIG_CORESIGHT_ETM
+	&coresight_etb_device,
+	&coresight_tpiu_device,
+	&coresight_funnel_device,
+	&coresight_etm_device,
+#endif
 };
 
 #ifdef CONFIG_EXYNOS4_SETUP_THERMAL
@@ -7014,21 +7110,12 @@ static void __init exynos4_cma_region_reserve(struct cma_region *regions_normal,
 			if (!memblock_is_region_reserved(reg->start, reg->size)
 			    && memblock_reserve(reg->start, reg->size) >= 0)
 				reg->reserved = 1;
-
-			pr_debug("S5P/CMA: Reserved 0x%08x/0x%08x for '%s'\n",
-				 reg->start, reg->size, reg->name);
-
-			cma_region_descriptor_add(reg->name, reg->start, reg->size);
 		} else {
 			paddr = __memblock_alloc_base(reg->size, reg->alignment,
 						      MEMBLOCK_ALLOC_ACCESSIBLE);
 			if (paddr) {
 				reg->start = paddr;
 				reg->reserved = 1;
-
-				pr_debug("S5P/CMA: Reserved 0x%08x/0x%08x for '%s'\n",
-						reg->start, reg->size, reg->name);
-				cma_region_descriptor_add(reg->name, reg->start, reg->size);
 			}
 		}
 	}
@@ -7050,12 +7137,6 @@ static void __init exynos4_cma_region_reserve(struct cma_region *regions_normal,
 				reg->start = paddr;
 				reg->reserved = 1;
 				paddr += reg->size;
-
-				pr_info("S5P/CMA: "
-					"Reserved 0x%08x/0x%08x for '%s'\n",
-					reg->start, reg->size, reg->name);
-
-				cma_region_descriptor_add(reg->name, reg->start, reg->size);
 
 				if (WARN_ON(cma_early_region_register(reg)))
 					memblock_free(reg->start, reg->size);
@@ -7190,10 +7271,10 @@ static void __init exynos4_reserve_mem(void)
 	static const char map[] __initconst =
 		"android_pmem.0=pmem;android_pmem.1=pmem_gpu1;"
 		"s3cfb.0=fimd;exynos4-fb.0=fimd;"
-		"s3c-fimc.0=fimc0;s3c-fimc.1=fimc1;s3c-fimc.2=fimc2;s3c-fimc.3=fimc3;"
+		"s3c-fimc.0=fimc0;s3c-fimc.1=fimc1;s3c-fimc.2=fimc2;"
 		"exynos4210-fimc.0=fimc0;exynos4210-fimc.1=fimc1;exynos4210-fimc.2=fimc2;exynos4210-fimc3=fimc3;"
 #ifdef CONFIG_ION_EXYNOS
-                "ion-exynos=ion;"
+		"ion-exynos=ion;"
 #endif
 #ifdef CONFIG_VIDEO_MFC5X
 		"s3c-mfc/A=mfc0,mfc-secure;"

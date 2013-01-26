@@ -64,6 +64,7 @@ static void sec_power_off(void)
 #define REBOOT_MODE_RECOVERY	4
 #define REBOOT_MODE_FOTA	5
 #define REBOOT_MODE_FOTA_BL	6	/* update bootloader */
+#define REBOOT_MODE_SECURE	7	/* image secure check fail */
 
 #define REBOOT_SET_PREFIX	0xabc00000
 #define REBOOT_SET_DEBUG	0x000d0000
@@ -91,14 +92,17 @@ static void sec_reboot(char str, const char *cmd)
 		else if (!strcmp(cmd, "recovery"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_RECOVERY,
 			       S5P_INFORM3);
-		else if (!strcmp(cmd, "bootloader"))
+		else if (!strcmp(cmd, "download"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_DOWNLOAD,
 			       S5P_INFORM3);
-		else if (!strcmp(cmd, "download"))
+		else if (!strcmp(cmd, "bootloader"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_DOWNLOAD,
 			       S5P_INFORM3);
 		else if (!strcmp(cmd, "upload"))
 			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_UPLOAD,
+			       S5P_INFORM3);
+		else if (!strcmp(cmd, "secure"))
+			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_SECURE,
 			       S5P_INFORM3);
 		else if (!strncmp(cmd, "debug", 5)
 			 && !kstrtoul(cmd + 5, 0, &value))

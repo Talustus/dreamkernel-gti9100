@@ -234,11 +234,6 @@ struct drm_exynos_gem_cache_op {
 	unsigned int gem_handle;
 };
 
-struct drm_exynos_plane_set_zpos {
-	__u32 plane_id;
-	__s32 zpos;
-};
-
 struct drm_exynos_g2d_get_ver {
 	__u32	major;
 	__u32	minor;
@@ -276,7 +271,7 @@ struct drm_exynos_g2d_exec {
 enum drm_exynos_ops_id {
 	EXYNOS_DRM_OPS_SRC,
 	EXYNOS_DRM_OPS_DST,
-	EXYNOS_DRM_OPS_MAX
+	EXYNOS_DRM_OPS_MAX,
 };
 
 /* definition of size */
@@ -313,7 +308,7 @@ enum drm_exynos_planer {
 	EXYNOS_DRM_PLANAR_Y,
 	EXYNOS_DRM_PLANAR_CB,
 	EXYNOS_DRM_PLANAR_CR,
-	EXYNOS_DRM_PLANAR_MAX
+	EXYNOS_DRM_PLANAR_MAX,
 };
 
 /**
@@ -335,30 +330,35 @@ struct drm_exynos_ipp_config {
 	struct drm_exynos_pos	pos;
 };
 
-/**
- * A structure for ipp property.
- *
- * @config: source, destination config.
- */
-struct drm_exynos_ipp_property {
-	struct drm_exynos_ipp_config config[EXYNOS_DRM_OPS_MAX];
-};
-
 /* command of ipp operations */
 enum drm_exynos_ipp_cmd {
 	IPP_CMD_NONE,
 	IPP_CMD_M2M,
 	IPP_CMD_WB,
-	IPP_CMD_OUT,
-	IPP_CMD_MAX
+	IPP_CMD_OUTPUT,
+	IPP_CMD_MAX,
+};
+
+/**
+ * A structure for ipp property.
+ *
+ * @config: source, destination config.
+ * @cmd: command type.
+ * @ipp_id: id of ipp driver.
+ * @prop_id: id of property.
+ */
+struct drm_exynos_ipp_property {
+	struct drm_exynos_ipp_config config[EXYNOS_DRM_OPS_MAX];
+	enum drm_exynos_ipp_cmd	cmd;
+	__u32	ipp_id;
+	__u32	prop_id;
+	__u32	reserved;
 };
 
 /* definition of buffer control */
 enum drm_exynos_ipp_buf_ctrl {
-	IPP_BUF_CTRL_MAP,
-	IPP_BUF_CTRL_UNMAP,
 	IPP_BUF_CTRL_QUEUE,
-	IPP_BUF_CTRL_DEQUEUE
+	IPP_BUF_CTRL_DEQUEUE,
 };
 
 /**
@@ -366,26 +366,29 @@ enum drm_exynos_ipp_buf_ctrl {
  *
  * @ops_id: operation directions.
  * @ctrl: buffer control.
- * @id: index of buffer.
+ * @prop_id: id of property.
+ * @buf_id: id of buffer.
  * @handle: Y, Cb, Cr each planar handle.
  * @user_data: user data.
  */
 struct drm_exynos_ipp_buf {
 	enum drm_exynos_ops_id	ops_id;
 	enum drm_exynos_ipp_buf_ctrl	buf_ctrl;
-	__u32	id;
+	__u32	prop_id;
+	__u32	buf_id;
 	__u32	handle[EXYNOS_DRM_PLANAR_MAX];
+	__u32	reserved;
 	__u64	user_data;
 };
 
 /**
  * A structure for ipp start/stop operations.
  *
- * @cmd: command id.
+ * @prop_id: id of property.
  * @use: use ipp device.
  */
 struct drm_exynos_ipp_ctrl {
-	enum drm_exynos_ipp_cmd	cmd;
+	__u32	prop_id;
 	__u32	use;
 };
 
@@ -395,7 +398,6 @@ struct drm_exynos_ipp_ctrl {
 #define DRM_EXYNOS_GEM_USERPTR		0x03
 #define DRM_EXYNOS_GEM_GET		0x04
 #define DRM_EXYNOS_USER_LIMIT		0x05
-#define DRM_EXYNOS_PLANE_SET_ZPOS	0x06
 #define DRM_EXYNOS_VIDI_CONNECTION	0x07
 
 /* temporary ioctl command. */
@@ -411,9 +413,10 @@ struct drm_exynos_ipp_ctrl {
 #define DRM_EXYNOS_G2D_EXEC		0x22
 
 /* IPP - Image Post Processing */
-#define DRM_EXYNOS_IPP_PROPERTY		0x30
-#define DRM_EXYNOS_IPP_BUF			0x31
-#define DRM_EXYNOS_IPP_CTRL			0x32
+#define DRM_EXYNOS_IPP_GET_PROPERTY	0x30
+#define DRM_EXYNOS_IPP_SET_PROPERTY	0x31
+#define DRM_EXYNOS_IPP_BUF			0x32
+#define DRM_EXYNOS_IPP_CTRL			0x33
 
 #define DRM_IOCTL_EXYNOS_GEM_CREATE		DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_EXYNOS_GEM_CREATE, struct drm_exynos_gem_create)
@@ -445,9 +448,6 @@ struct drm_exynos_ipp_ctrl {
 #define DRM_IOCTL_EXYNOS_GEM_PHY_IMP	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_EXYNOS_GEM_PHY_IMP, struct drm_exynos_gem_phy_imp)
 
-#define DRM_IOCTL_EXYNOS_PLANE_SET_ZPOS	DRM_IOWR(DRM_COMMAND_BASE + \
-		DRM_EXYNOS_PLANE_SET_ZPOS, struct drm_exynos_plane_set_zpos)
-
 #define DRM_IOCTL_EXYNOS_VIDI_CONNECTION	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_EXYNOS_VIDI_CONNECTION, struct drm_exynos_vidi_connection)
 
@@ -458,8 +458,10 @@ struct drm_exynos_ipp_ctrl {
 #define DRM_IOCTL_EXYNOS_G2D_EXEC		DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_EXYNOS_G2D_EXEC, struct drm_exynos_g2d_exec)
 
-#define DRM_IOCTL_EXYNOS_IPP_PROPERTY	DRM_IOWR(DRM_COMMAND_BASE + \
-		DRM_EXYNOS_IPP_PROPERTY, struct drm_exynos_ipp_property)
+#define DRM_IOCTL_EXYNOS_IPP_GET_PROPERTY	DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_EXYNOS_IPP_GET_PROPERTY, struct drm_exynos_ipp_property)
+#define DRM_IOCTL_EXYNOS_IPP_SET_PROPERTY	DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_EXYNOS_IPP_SET_PROPERTY, struct drm_exynos_ipp_property)
 #define DRM_IOCTL_EXYNOS_IPP_BUF	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_EXYNOS_IPP_BUF, struct drm_exynos_ipp_buf)
 #define DRM_IOCTL_EXYNOS_IPP_CTRL		DRM_IOWR(DRM_COMMAND_BASE + \
@@ -483,8 +485,9 @@ struct drm_exynos_ipp_event {
 	__u64			user_data;
 	__u32			tv_sec;
 	__u32			tv_usec;
-	__u32			buf_idx;
+	__u32			prop_id;
 	__u32			reserved;
+	__u32			buf_id[EXYNOS_DRM_OPS_MAX];
 };
 
 /**
@@ -566,7 +569,7 @@ struct exynos_drm_fimc_pol {
 enum exynos_drm_fimc_ver {
 	FIMC_EXYNOS_4210,
 	FIMC_EXYNOS_4212,
-	FIMC_EXYNOS_4412
+	FIMC_EXYNOS_4412,
 };
 
 /**
@@ -581,3 +584,4 @@ struct exynos_drm_fimc_pdata {
 };
 
 #endif
+

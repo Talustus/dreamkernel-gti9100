@@ -573,7 +573,7 @@ static void config_cdma_modem_gpio(void)
 		if (err)
 			pr_err("fail to request gpio %s\n", "PDA_ACTIVE");
 		 else
-			gpio_direction_output(gpio_pda_active, 1);
+			gpio_direction_output(gpio_pda_active, 0);
 		}
 
 	if (gpio_phone_active) {

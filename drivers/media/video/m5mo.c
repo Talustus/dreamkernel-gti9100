@@ -112,8 +112,9 @@ static const struct m5mo_frmsizeenum preview_frmsizes[] = {
 };
 
 static const struct m5mo_frmsizeenum capture_frmsizes[] = {
-	{ M5MO_CAPTURE_VGA,	640,	480,	0x09 },
-	{ M5MO_CAPTURE_WVGA,	800,	480,	0x0A },
+	{ M5MO_CAPTURE_VGA,	640,		480,		0x09 },
+	{ M5MO_CAPTURE_WVGA,	800,		480,		0x0A },
+	{ M5MO_CAPTURE_SXGA,	1280,	960,		0x14 },
 	{ M5MO_CAPTURE_W2MP,	2048,	1232,	0x2C },
 	{ M5MO_CAPTURE_3MP,	2048,	1536,	0x1B },
 	{ M5MO_CAPTURE_W7MP,	3264,	1968,	0x2D },
@@ -172,8 +173,6 @@ static struct m5mo_control m5mo_ctrls[] = {
 		.default_value = ANTI_BANDING_50HZ,
 	},
 };
-
-struct class *camera_class;
 
 static inline struct m5mo_state *to_state(struct v4l2_subdev *sd)
 {
@@ -2934,8 +2933,8 @@ static int __devinit m5mo_probe(struct i2c_client *client,
 	state->dbg_level = CAM_DEBUG;
 #endif
 	if (state->m5mo_dev == NULL) {
-		state->m5mo_dev =
-		    device_create(camera_class, NULL, 0, NULL, "rear");
+		state->m5mo_dev =  device_create(camera_class, NULL,
+					MKDEV(CAM_MAJOR, 0), NULL, "rear");
 		if (IS_ERR(state->m5mo_dev)) {
 			cam_err("failed to create device m5mo_dev!\n");
 		} else {
@@ -2982,7 +2981,7 @@ static int __devexit m5mo_remove(struct i2c_client *client)
 
 	device_remove_file(state->m5mo_dev, &dev_attr_rear_camtype);
 	device_remove_file(state->m5mo_dev, &dev_attr_rear_camfw);
-	device_destroy(camera_class, 0);
+	device_destroy(camera_class, state->m5mo_dev->devt);
 	state->m5mo_dev = NULL;
 
 	if (state->isp.irq > 0)
@@ -3013,9 +3012,6 @@ static struct i2c_driver m5mo_i2c_driver = {
 
 static int __init m5mo_mod_init(void)
 {
-	camera_class = class_create(THIS_MODULE, "camera");
-	if (IS_ERR(camera_class))
-		pr_err("Failed to create class(camera)!\n");
 	return i2c_add_driver(&m5mo_i2c_driver);
 }
 

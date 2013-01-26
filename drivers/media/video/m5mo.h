@@ -12,6 +12,8 @@
 
 #include <linux/wakelock.h>
 
+#define CAM_MAJOR	119
+
 #define CONFIG_CAM_DEBUG
 
 #define cam_warn(fmt, ...)	\
@@ -80,6 +82,7 @@ enum m5mo_prev_frmsize {
 enum m5mo_cap_frmsize {
 	M5MO_CAPTURE_VGA,	/* 640 x 480 */
 	M5MO_CAPTURE_WVGA,	/* 800 x 480 */
+	M5MO_CAPTURE_SXGA,    /*1280 x 960*/
 	M5MO_CAPTURE_W1MP,	/* 1600 x 960 */
 	M5MO_CAPTURE_2MP,	/* UXGA - 1600 x 1200 */
 	M5MO_CAPTURE_W2MP,	/* 2048 x 1232 */
@@ -187,6 +190,12 @@ struct m5mo_state {
 	unsigned int check_dataline:1;
 	int anti_banding;
 };
+
+extern struct class *camera_class;
+
+/*
+ * ISP CMD Category Definitions
+ */
 
 /* Category */
 #define M5MO_CATEGORY_SYS	0x00

@@ -39,7 +39,11 @@ struct sec_battery_platform_data {
 	int (*get_charger_is_full)(void);
 
 	void (*init_charger_gpio) (void);
+#if defined(CONFIG_MACH_P4NOTE)
+	void (*inform_charger_connection) (int, int);
+#else
 	void (*inform_charger_connection) (int);
+#endif
 	int temp_high_threshold;
 	int temp_high_recovery;
 	int temp_low_recovery;
@@ -60,6 +64,12 @@ enum capacity_type {
 	CAPACITY_TYPE_MIX,
 	CAPACITY_TYPE_AV,
 	CAPACITY_TYPE_REP,
+};
+
+enum dock_type {
+	DOCK_NONE = 0,
+	DOCK_DESK,
+	DOCK_KEYBOARD,
 };
 
 extern int low_batt_compensation(int fg_soc, int fg_vcell, int fg_current);

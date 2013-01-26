@@ -68,9 +68,7 @@
 #define DRIVER_DESC "USB 2.0 'Enhanced' Host Controller (EHCI) Driver"
 
 static const char	hcd_name [] = "ehci_hcd";
-#ifdef CONFIG_MACH_P8LTE
-int p8lte_ehci_hcd_died;
-#endif
+
 
 #undef VERBOSE_DEBUG
 #undef EHCI_URB_TRACE
@@ -529,8 +527,26 @@ static void ehci_stop (struct usb_hcd *hcd)
 
 	/* root hub is shut down separately (first, when possible) */
 	spin_lock_irq (&ehci->lock);
+#ifdef CONFIG_MDM_HSIC_PM
+	if (ehci->async) {
+		/*
+		 * TODO: Observed that ehci->async next ptr is not
+		 * NULL sometimes which leads to crash in mem_cleanup.
+		 * Root cause is not yet known why this messup is
+		 * happenning.
+		 * The follwing workaround fixes the crash caused
+		 * by this temporarily.
+		 * check if async next ptr is not NULL and unlink
+		 * explictly.
+		 */
+		if (ehci->async->qh_next.ptr != NULL)
+			start_unlink_async(ehci, ehci->async->qh_next.qh);
+		ehci_work(ehci);
+	}
+#else
 	if (ehci->async)
 		ehci_work (ehci);
+#endif
 	spin_unlock_irq (&ehci->lock);
 	ehci_mem_cleanup (ehci);
 
@@ -883,6 +899,13 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 			pstatus = ehci_readl(ehci,
 					 &ehci->regs->port_status[i]);
 
+#ifdef CONFIG_MDM_HSIC_PM
+			/*set RS bit in case of remote wakeup*/
+			if (ehci_is_TDI(ehci) && !(cmd & CMD_RUN) &&
+					(pstatus & PORT_SUSPEND))
+				ehci_writel(ehci, cmd | CMD_RUN,
+						&ehci->regs->command);
+#endif
 			if (pstatus & PORT_OWNER)
 				continue;
 			if (!(test_bit(i, &ehci->suspended_ports) &&
@@ -913,7 +936,7 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 			 */
 #ifdef CONFIG_LINK_DEVICE_HSIC
 			/* ensure suspend bit clear by adding 5 msec delay. */
-			ehci->reset_done[i] = jiffies + msecs_to_jiffies(35);
+			ehci->reset_done[i] = jiffies + msecs_to_jiffies(50);
 #else
 			ehci->reset_done[i] = jiffies + msecs_to_jiffies(25);
 #endif
@@ -937,9 +960,6 @@ dead:
 		 * uses ehci_stop to clean up the rest
 		 */
 		bh = 1;
-#ifdef CONFIG_MACH_P8LTE
-		p8lte_ehci_hcd_died = 1;
-#endif
 	}
 
 	if (bh)
@@ -1459,22 +1479,4 @@ static void __exit ehci_hcd_cleanup(void)
 	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
 }
 module_exit(ehci_hcd_cleanup);
-
-#ifdef CONFIG_MACH_P8LTE
-int reset_p8lte_s5p_ehci(void)
-{
-	if(p8lte_ehci_hcd_died)
-	{
-		printk(KERN_EMERG "In %s Function\n", __func__);
-
-		platform_driver_unregister(&PLATFORM_DRIVER);
-		msleep(300);
-		platform_driver_register(&PLATFORM_DRIVER);
-		msleep(300);
-		p8lte_ehci_hcd_died = 0;
-	}
-	return 0;
-}
-EXPORT_SYMBOL(reset_p8lte_s5p_ehci);
-#endif
 

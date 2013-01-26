@@ -285,8 +285,9 @@ out:
 		if (!fatal)
 			fatal = err;
 		ext4_mark_super_dirty(sb);
-	} else
+	} else {
 		ext4_error(sb, "bit already cleared for inode %lu", ino);
+	}
 
 error_return:
 	brelse(bitmap_bh);

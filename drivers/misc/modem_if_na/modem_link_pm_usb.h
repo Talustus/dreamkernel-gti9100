@@ -85,9 +85,4 @@ bool link_pm_set_active(struct usb_link_device *usb_ld);
 bool link_pm_is_connected(struct usb_link_device *usb_ld);
 int link_pm_init(struct usb_link_device *usb_ld, void *data);
 
-#ifdef CONFIG_MACH_P8LTE
-extern int p8lte_ehci_hcd_died;
-extern int reset_p8lte_s5p_ehci(void);
-#endif
-
 #endif

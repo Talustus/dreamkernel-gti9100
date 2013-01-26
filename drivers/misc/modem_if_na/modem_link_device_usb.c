@@ -97,8 +97,8 @@ static int usb_init_communication(struct link_device *ld,
 		ld->com_state = COM_ONLINE;
 		break;
 	}
-	if (iod->format != IPC_BOOT && iod->format != IPC_RAMDUMP)
-		mif_debug("com_state = %d\n", ld->com_state);
+
+	mif_debug("com_state = %d\n", ld->com_state);
 	return err;
 }
 
@@ -408,6 +408,12 @@ static void usb_tx_work(struct work_struct *work)
 					ret);
 				skb_queue_head(&ld->sk_fmt_tx_q, skb);
 
+				if (edc_inc(&usb_ld->urb_edc, EDC_MAX_ERRORS,
+							EDC_ERROR_TIMEFRAME)) {
+					mif_err("maximum error in URB exceeded\n");
+					usb_change_modem_state(usb_ld,
+							STATE_CRASH_EXIT);
+				}
 				return;
 			}
 		}
@@ -421,6 +427,13 @@ static void usb_tx_work(struct work_struct *work)
 						"for raw, ret(%d)\n",
 						ret);
 				skb_queue_head(&ld->sk_raw_tx_q, skb);
+
+				if (edc_inc(&usb_ld->urb_edc, EDC_MAX_ERRORS,
+							EDC_ERROR_TIMEFRAME)) {
+					mif_err("maximum error in URB exceeded\n");
+					usb_change_modem_state(usb_ld,
+							STATE_CRASH_EXIT);
+				}
 				return;
 			}
 		}
@@ -490,14 +503,6 @@ static void wait_enumeration_work(struct work_struct *work)
 
 	if (usb_ld->if_usb_connected == 0) {
 		mif_err("USB disconnected and not enumerated for long time\n");
-#ifdef CONFIG_MACH_P8LTE
-	if(p8lte_ehci_hcd_died)
-	{
-		usb_change_modem_state(usb_ld, STATE_CRASH_RESET);
-		SET_HOST_ACTIVE(usb_ld->pdata, 1);
-	}
-	else
-#endif
 		usb_change_modem_state(usb_ld, STATE_CRASH_EXIT);
 	}
 }
@@ -635,15 +640,10 @@ static void if_usb_disconnect(struct usb_interface *intf)
 		cancel_work_sync(&usb_ld->disconnect_work);
 		usb_put_dev(usbdev);
 		usb_ld->usbdev = NULL;
-		if(!factory_mode)
-			wake_lock(&usb_ld->link_pm_data->boot_wake);
-#ifdef CONFIG_MACH_P8LTE
-		if (p8lte_ehci_hcd_died)
-			schedule_delayed_work(&usb_ld->wait_enumeration,
-				msecs_to_jiffies(10000));
-		else
-#endif
-			schedule_delayed_work(&usb_ld->wait_enumeration,
+
+		wake_lock(&usb_ld->link_pm_data->boot_wake);
+
+		schedule_delayed_work(&usb_ld->wait_enumeration,
 				WAIT_ENUMURATION_TIMEOUT_JIFFIES);
 	}
 }
@@ -797,6 +797,8 @@ static int __devinit if_usb_probe(struct usb_interface *intf,
 		usb_change_modem_state(usb_ld, STATE_LOADER_DONE);
 	}
 
+	edc_init(&usb_ld->urb_edc);
+
 	return 0;
 
 out2:
@@ -816,14 +818,6 @@ irqreturn_t usb_resume_irq(int irq, void *data)
 	static int wake_status = -1;
 	struct device *dev;
 
-#ifdef CONFIG_MACH_P8LTE
-	if(p8lte_ehci_hcd_died)
-	{
-		/* mif_err("EHCI HC died, ignoring interrupt");*/
-
-		return IRQ_HANDLED;
-	}
-#endif
 	hwup = gpio_get_value(usb_ld->pdata->gpio_host_wakeup);
 	if (hwup == wake_status) {
 		mif_err("Received spurious wake irq: %d", hwup);
@@ -975,7 +969,6 @@ struct link_device *usb_create_link_device(void *data)
 	ret = if_usb_init(usb_ld);
 	if (ret)
 		goto err;
-
 
 	return ld;
 err:

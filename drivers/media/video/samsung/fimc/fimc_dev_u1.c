@@ -573,8 +573,9 @@ struct fimc_control *fimc_register_controller(struct platform_device *pdev)
 	ctrl->vd->minor = id;
 	ctrl->log = FIMC_LOG_DEFAULT;
 	ctrl->power_status = FIMC_POWER_OFF;
+
 	/* CMA */
-	sprintf(ctrl->cma_name, "%s%d", FIMC_CMA_NAME, ctrl->id);
+		sprintf(ctrl->cma_name, "%s%d", FIMC_CMA_NAME, ctrl->id);
 	err = cma_info(&mem_info, ctrl->dev, 0);
 	fimc_info1("%s : [cma_info] start_addr : 0x%x, end_addr : 0x%x, "
 			"total_size : 0x%x, free_size : 0x%x\n",

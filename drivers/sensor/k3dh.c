@@ -101,7 +101,11 @@ static int k3dh_read_accel_raw_xyz(struct k3dh_data *data,
 	acc->y = (acc_data[3] << 8) | acc_data[2];
 	acc->z = (acc_data[5] << 8) | acc_data[4];
 
+#if defined(CONFIG_MACH_U1_NA_SPR)
+	acc->x = -acc->x >> 4;
+#else
 	acc->x = acc->x >> 4;
+#endif
 	acc->y = acc->y >> 4;
 	#if defined(CONFIG_MACH_U1_NA_SPR_REV05) \
 		|| defined(CONFIG_MACH_U1_NA_SPR_EPIC2_REV00) \
@@ -277,9 +281,6 @@ static int k3dh_accel_disable(struct k3dh_data *data)
 static int k3dh_open(struct inode *inode, struct file *file)
 {
 	k3dh_infomsg("is called.\n");
-    struct k3dh_data *data = container_of(file->private_data,
-            struct k3dh_data, k3dh_device);
-    k3dh_accel_enable(data);
 	return 0;
 }
 
@@ -287,9 +288,6 @@ static int k3dh_open(struct inode *inode, struct file *file)
 static int k3dh_close(struct inode *inode, struct file *file)
 {
 	k3dh_infomsg("is called.\n");
-    struct k3dh_data *data = container_of(file->private_data,
-        struct k3dh_data, k3dh_device);
-    k3dh_accel_disable(data);
 	return 0;
 }
 

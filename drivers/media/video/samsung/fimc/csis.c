@@ -301,7 +301,6 @@ static irqreturn_t s3c_csis_irq(int irq, void *dev_id)
 	u32 cfg;
 
 	struct platform_device *pdev = (struct platform_device *) dev_id;
-	int bufnum = 0;
 	/* just clearing the pends */
 	cfg = readl(s3c_csis[pdev->id]->regs + S3C_CSIS_INTSRC);
 	writel(cfg, s3c_csis[pdev->id]->regs + S3C_CSIS_INTSRC);
@@ -318,8 +317,6 @@ static irqreturn_t s3c_csis_irq(int irq, void *dev_id)
 #endif
 	if(s3c_csis[pdev->id]->pktdata_enable) {
 		if (unlikely(cfg & S3C_CSIS_INTSRC_NON_IMAGE_DATA)) {
-			/* printk(KERN_INFO "%s NON Image Data bufnum = %d 0x%x\n", __func__, bufnum, cfg); */
-
 			if (cfg & S3C_CSIS_INTSRC_EVEN_BEFORE) {
 				/* printk(KERN_INFO "S3C_CSIS_INTSRC_EVEN_BEFORE\n"); */
 				memcpy_fromio(s3c_csis[pdev->id]->bufs.pktdata,

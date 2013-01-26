@@ -1134,7 +1134,7 @@ static void mshci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	/* We shouldn't wait for data inihibit for stop commands, even
 	   though they might use busy signaling */
-	if (mrq->cmd->opcode == 12) {
+	if ((mrq->cmd->opcode == 12) || (mrq->cmd->opcode == 13)) {
 		/* nothing to do */
 	} else {
 		for (;;) {
@@ -1662,8 +1662,6 @@ static void mshci_data_irq(struct mshci_host *host, u32 intmask, u8 intr_src)
 			printk(KERN_ERR "%s: Host timeout error\n",
 						mmc_hostname(host->mmc));
 			host->data->error = -ETIMEDOUT;
-			/* debugging for Host timeout error */
-			mshci_dumpregs(host);
 		} else if (intmask & INTMSK_DRTO) {
 			printk(KERN_ERR "%s: Data read timeout error\n",
 						mmc_hostname(host->mmc));
@@ -1704,12 +1702,8 @@ static void mshci_data_irq(struct mshci_host *host, u32 intmask, u8 intr_src)
 	if (host->data->error) {
 		/* to notify an error happend */
 		host->error_state = 1;
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_P4NOTE) || \
-		defined(CONFIG_MACH_C1_USA_ATT) \
-		|| defined(CONFIG_MACH_GRANDE) || defined(CONFIG_MACH_IRON)
 		if (host->mmc && host->mmc->card)
 			mshci_dumpregs(host);
-#endif
 		mshci_finish_data(host);
 	} else {
 		if (!(host->flags & MSHCI_REQ_USE_DMA) &&
@@ -1781,7 +1775,7 @@ static irqreturn_t mshci_irq(int irq, void *dev_id)
 				& INTMSK_CDONE))
 				; /* Nothing to do */
 			if (!timeout)
-				printk(KERN_ERR "*** %s time out for	CDONE intr\n",
+				printk(KERN_ERR"*** %s time out for	CDONE intr\n",
 					mmc_hostname(host->mmc));
 			else
 				mshci_writel(host, INTMSK_CDONE,
@@ -1800,11 +1794,12 @@ static irqreturn_t mshci_irq(int irq, void *dev_id)
 			 * DTO intr comes later than error intr.
 			 * so, it has to wait for DTO intr.
 			 */
+			timeout = 0x10000;
 			while (--timeout && !(mshci_readl(host, MSHCI_MINTSTS)
 				& INTMSK_DTO))
 				; /* Nothing to do */
 			if (!timeout)
-				printk(KERN_ERR "*** %s time out for	DTO intr\n",
+				printk(KERN_ERR"*** %s time out for	DTO intr\n",
 					mmc_hostname(host->mmc));
 			else
 				mshci_writel(host, INTMSK_DTO,
@@ -2045,15 +2040,13 @@ int mshci_add_host(struct mshci_host *host)
 	mmc->ops = &mshci_ops;
 	mmc->f_min = 400000;
 	mmc->f_max = host->max_clk;
-    /*
-     * removed MMC_CAP_ERASE to avoid killing faulty emmc chips
-     * yes, we're scared ;-)
-     * 
-     * mmc->caps |= MMC_CAP_SDIO_IRQ | MMC_CAP_ERASE;
-     * 
-     */
-    mmc->caps |= MMC_CAP_SDIO_IRQ;
-
+	/*
+	 * removed MMC_CAP_ERASE to avoid killing faulty emmc chips
+	 *
+	 * mmc->caps |= MMC_CAP_SDIO_IRQ | MMC_CAP_ERASE;
+	 * 
+	 */
+	mmc->caps |= MMC_CAP_SDIO_IRQ;
 	mmc->caps |= MMC_CAP_4_BIT_DATA;
 
 	mmc->ocr_avail = 0;

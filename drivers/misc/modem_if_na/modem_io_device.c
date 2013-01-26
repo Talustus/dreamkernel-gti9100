@@ -58,13 +58,11 @@ struct rfs_hdr {
 
 static const char const *modem_state_name[] = {
 	[STATE_OFFLINE]		= "OFFLINE",
-	[STATE_CRASH_RESET] = "CRASH_RESET",
 	[STATE_CRASH_EXIT]	= "CRASH_EXIT",
 	[STATE_BOOTING]		= "BOOTING",
 	[STATE_ONLINE]		= "ONLINE",
 	[STATE_LOADER_DONE]	= "LOADER_DONE",
 	[STATE_NV_REBUILDING]	= "NV_REBUILDING",
-	[STATE_EXIT_RESET]	= "EXIT_RESET",
 };
 
 static int rx_iodev_skb(struct io_device *iod);
@@ -214,7 +212,7 @@ static int rx_hdlc_head_check(struct io_device *iod, char *buf, unsigned rest)
 			if ((iod->format == IPC_RAW
 				|| iod->format == IPC_MULTI_RAW)
 				&& (iod->net_typ == CDMA_NETWORK)
-				&& (hdr->len + len == head_size))
+				&& !(len & 0x01))
 				len++;
 		}
 		hdr->len += len;
@@ -586,10 +584,7 @@ static void io_dev_modem_state_changed(struct io_device *iod,
 	pr_info("[MODEM_IF] %s state changed: %s\n", \
 				iod->name, modem_state_name[state]);
 
-	if ((state == STATE_CRASH_EXIT)
-		|| (state == STATE_NV_REBUILDING)
-		|| (state == STATE_EXIT_RESET)
-		|| (state == STATE_CRASH_RESET))
+	if ((state == STATE_CRASH_EXIT) || (state == STATE_NV_REBUILDING))
 		wake_up(&iod->wq);
 }
 
@@ -631,9 +626,7 @@ static unsigned int misc_poll(struct file *filp,
 				&& (iod->mc->phone_state != STATE_OFFLINE))
 		return POLLIN | POLLRDNORM;
 	else if ((iod->mc->phone_state == STATE_CRASH_EXIT) ||
-		(iod->mc->phone_state == STATE_NV_REBUILDING)||
-		(iod->mc->phone_state == STATE_EXIT_RESET) ||
-		(iod->mc->phone_state == STATE_CRASH_RESET))
+		(iod->mc->phone_state == STATE_NV_REBUILDING))
 		return POLLHUP;
 	else
 		return 0;
@@ -653,9 +646,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
 
 	case IOCTL_MODEM_OFF:
 		pr_debug("[MODEM_IF] misc_ioctl : IOCTL_MODEM_OFF\n");
-		iod->mc->phone_state = STATE_OFFLINE;
-		return 0;
-		//return iod->mc->ops.modem_off(iod->mc);
+		return iod->mc->ops.modem_off(iod->mc);
 
 	case IOCTL_MODEM_RESET:
 		pr_debug("[MODEM_IF] misc_ioctl : IOCTL_MODEM_RESET\n");

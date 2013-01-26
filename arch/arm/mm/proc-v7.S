@@ -182,8 +182,7 @@ ENTRY(cpu_v7_set_pte_ext)
 	mov	pc, lr
 ENDPROC(cpu_v7_set_pte_ext)
 
-cpu_v7_name:
-	.ascii	"ARMv7 Processor"
+	string	cpu_v7_name, "ARMv7 Processor"
 	.align
 
 	/*
