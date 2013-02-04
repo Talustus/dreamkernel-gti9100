@@ -38,6 +38,9 @@ config TARGET_LOCALE_CHN
 config TARGET_LOCALE_USA
 	bool "USA"
 
+config TARGET_LOCALE_NAATT_TEMP
+        bool "Support North America GSM ATT Board"
+
 endchoice
 
 choice
