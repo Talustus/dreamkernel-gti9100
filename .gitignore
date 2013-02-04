@@ -107,4 +107,5 @@ _tool
 Module.symvers
 *.tar
 *.md5
-
+!recovery.tar.xz
+!payload.tar
