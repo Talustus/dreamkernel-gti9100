@@ -49,37 +49,40 @@ makeall
 /Module.symvers
 /zImage
 /zImage_in
-#/boot.img
 #
 # git files that we don't want to ignore even it they are dot-files
 #
 !.gitignore
 !.mailmap
-!recovery.cm10.tar.xz
 
 #
 # Generated include files
 #
-include/config
-include/linux/version.h
-include/generated/*
 arch/*/include/generated
 arch/arm/boot/Image
 arch/arm/boot/compressed/piggy.gzip
 arch/arm/boot/compressed/vmlinux
-usr/initramfs_data.cpio
-#arch/arm/boot/*
-zImage
+arch/arm/boot/compressed/lib1funcs.S
+arch/arm/boot/compressed/vmlinux.lds
+arch/arm/kernel/vmlinux.lds
+drivers/tty/vt/consolemap_deftbl.c
+drivers/tty/vt/defkeymap.c
 include/asm
 include/asm-arm
 include/config
-include/linux/autoconf.h
-include/linux/compile.h
-include/linux/version.h
-include/linux/utsrelease.h
-include/linux/bounds.h
 include/generated
-#usr/*
+include/generated/*
+include/linux/autoconf.h
+include/linux/bounds.h
+include/linux/compile.h
+include/linux/utsrelease.h
+include/linux/version.h
+kernel/timeconst.h
+lib/crc32table.h
+lib/gen_crc32table
+usr/gen_init_cpio
+usr/initramfs_data.cpio
+
 
 # stgit generated dirs
 patches-*
@@ -107,5 +110,6 @@ _tool
 Module.symvers
 *.tar
 *.md5
+zImage
 !recovery.tar.xz
 !payload.tar

@@ -1,0 +1,11 @@
+recordmcount
+conmakehash
+kallsyms
+basic/fixdep
+kconfig/conf
+kconfig/lex.zconf.c
+kconfig/zconf.hash.c
+kconfig/zconf.tab.c
+mod/elfconfig.h
+mod/mk_elfconfig
+mod/modpost
