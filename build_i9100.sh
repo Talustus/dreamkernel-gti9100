@@ -31,8 +31,8 @@ export RELEASEDIR=`readlink -f $KERNELDIR/../releases`
 #
 # Version of this Build
 #
-KRNRLS="DreamKernel-GT-I9100JB-HKB1"
-KBUILD_BUILD_HOST=`hostname | sed 's|deblap|vs117.dream-irc.com|g'`
+KRNRLS="DreamKernel-GT-I9100JB-HKB3"
+KBUILD_BUILD_HOST=`hostname | sed 's|ip-projects.de|dream-irc.com|g'`
 HOSTNAME=$KBUILD_BUILD_HOST
 #
 # Target Settings
@@ -55,14 +55,15 @@ then
   fi
 fi
 
-
+# get time of startup
+time_start=$(date +%s.%N)
 
 
 # remove Files of old/previous Builds
 #
 echo -e "${TXTYLW}Deleting Files of previous Builds ...${TXTCLR}"
 cd $KERNELDIR/
-make -j2 distclean
+# make -j9 distclean 2>&1 | grcat conf.gcc
 rm -rvf $INITRAMFS_TMP
 rm -vf $INITRAMFS_TMP.cpio
 rm -fv $KERNELDIR/zImage
@@ -72,11 +73,11 @@ rm -fv $KERNELDIR/zImage
 echo -e "${TXTYLW}CleanUP done, starting kernel Build ...${TXTCLR}"
 echo
 echo -e "${TXTYLW}Creating default kernel Config (dream_sgs2_defconfig):${TXTCLR}"
-make ARCH=arm dream_i9100_defconfig
+make ARCH=arm dream_i9100_defconfig 2>&1 | grcat conf.gcc
 echo
 
 . $KERNELDIR/.config
-nice -n 10 make -j2 KBUILD_BUILD_HOST="$HOSTNAME" modules 2>&1 | grcat conf.gcc
+nice -n 10 make -j9 KBUILD_BUILD_HOST="$HOSTNAME" modules 2>&1 | grcat conf.gcc
 sleep 2
 
 echo -e "${TXTGRN}Build: Stage 1 successfully completed${TXTCLR}"
@@ -117,7 +118,7 @@ sleep 1
 # Start Final Kernel Build
 #
 echo -e "${TXTYLW}Starting final Build: Stage 2${TXTCLR}"
-nice -n 10 make -j2 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | grcat conf.gcc
+nice -n 10 make -j9 KBUILD_BUILD_HOST="$HOSTNAME" CONFIG_INITRAMFS_SOURCE="$INITRAMFS_TMP.cpio" zImage 2>&1 | grcat conf.gcc
 sleep 1
 
 $KERNELDIR/mkshbootimg.py $KERNELDIR/zImage $KERNELDIR/arch/arm/boot/zImage $KERNELDIR/payload.tar $KERNELDIR/recovery.tar.xz
@@ -132,22 +133,23 @@ ARCNAME="$KRNRLS-`date +%Y%m%d%H%M%S`"
 
 echo -e "${BLDRED}creating ODIN-Flashable TAR: and CWM flashable ZIP: ${ARCNAME}.tar/.zip ${TXTCLR}"
 ## ODIN
-tar cfv $ARCNAME.tar zImage
-mv -v $ARCNAME.tar $RELEASEDIR
+tar cfv $RELEASEDIR/$ARCNAME.tar zImage
 
 ## CWM
-# cp -v $RELEASEDIR/updater-template.zip $RELEASEDIR/$ARCNAME-CWM.zip
-# zip -u $RELEASEDIR/$ARCNAME-CWM.zip zImage
-
+cp -v $RELEASEDIR/updater-template.zip $RELEASEDIR/$ARCNAME-CWM.zip
+zip -u $RELEASEDIR/$ARCNAME-CWM.zip zImage
 
 ## List the Files
 echo -e "${TXTYLW}$(ls -lh $KERNELDIR/zImage)${TXTCLR}"
 echo -e "${TXTGRN}$(ls -lh $RELEASEDIR/$ARCNAME.tar)${TXTCLR}"
-# echo -e "${TXTGRN}$(ls -lh $RELEASEDIR/$ARCNAME-CWM.zip)${TXTCLR}"
-
+echo -e "${TXTGRN}$(ls -lh $RELEASEDIR/$ARCNAME-CWM.zip)${TXTCLR}"
 echo
 
+time_end=$(date +%s.%N)
 echo -e "${BLDGRN}	#############################	${TXTCLR}"
-echo -e "${TXTRED}	# Script completed, exiting #	${TXTCLR}"
+echo -e "${TXTRED}	       Script completed 	${TXTCLR}"
 echo -e "${BLDGRN}	#############################	${TXTCLR}"
-
+echo -e "${BLDYLW}	     Total time elapsed: 	${TCTCLR}"
+echo -e "${TXTGRN}	     ($(echo "($time_end - $time_start) / 60"|bc ) ${TXTYLW}minutes)${TXTCLR}"
+echo -e "${TXTGRN}	     ($(echo "$time_end - $time_start"|bc ) ${TXTYLW}seconds) ${TXTCLR}"
+echo -e "${BLDGRN}	#############################	${TXTCLR}"
