@@ -40,6 +40,11 @@
 #include "mali_device_pause_resume.h"
 #include "mali_linux_pm.h"
 
+#ifdef CONFIG_GPU_CLOCK_CONTROL
+#include <../common/gpu_clock_control.h>
+#include <../common/gpu_voltage_control.h>
+#endif
+
 #ifdef MALI_REBOOTNOTIFIER
 _mali_osk_atomic_t mali_shutdown_state;
 #include <linux/reboot.h>
@@ -628,6 +633,11 @@ int _mali_dev_platform_register(void)
 	int err;
 #if MALI_PMM_RUNTIME_JOB_CONTROL_ON	
 	set_mali_parent_power_domain((void *)&mali_gpu_device);
+#endif
+
+#ifdef CONFIG_GPU_CLOCK_CONTROL
+gpu_clock_control_start();
+gpu_voltage_control_start();
 #endif
 
 #ifdef CONFIG_PM_RUNTIME
