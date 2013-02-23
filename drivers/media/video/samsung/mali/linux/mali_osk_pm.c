@@ -48,7 +48,6 @@ void _mali_osk_pm_dev_enable(void)
 _mali_osk_errcode_t _mali_osk_pm_dev_idle(void)
 {
 #ifdef CONFIG_PM_RUNTIME
-
 	if (MALI_TRUE == have_runtime_reference)
 	{
 		int err;
@@ -62,57 +61,6 @@ _mali_osk_errcode_t _mali_osk_pm_dev_idle(void)
 	}
 #endif
 	return _MALI_OSK_ERR_OK;
-}
-/** This function is invoked when mali device is idle.
-*/
-_mali_osk_errcode_t _mali_osk_pmm_dev_idle(void)
-{
-	_mali_osk_errcode_t err = 0;
-#if MALI_LICENSE_IS_GPL
-#ifdef CONFIG_PM_RUNTIME
-#if MALI_PMM_RUNTIME_JOB_CONTROL_ON
-
-	err = pm_runtime_put_sync(&(mali_gpu_device.dev));	
-	if(err)
-	{
-		MALI_DEBUG_PRINT(4, ("OSPMM: Error in _mali_osk_pmm_dev_idle\n" ));	
-	}
-#endif /* MALI_PMM_RUNTIME_JOB_CONTROL_ON */
-#endif /* CONFIG_PM_RUNTIME */
-#endif /* MALI_LICENSE_IS_GPL */
-	return err;
-}
-
-/** This funtion is invoked when mali device needs to be activated.
-*/
-static int is_runtime =0; 
-int _mali_osk_pmm_dev_activate(void)
-{
-	
-#if MALI_LICENSE_IS_GPL
-#ifdef CONFIG_PM_RUNTIME
-#if MALI_PMM_RUNTIME_JOB_CONTROL_ON
-	int err = 0;
-	if(is_runtime == 0)
-	{
-		pm_suspend_ignore_children(&(mali_gpu_device.dev), true);
-		pm_runtime_enable(&(mali_gpu_device.dev));
-		err = pm_runtime_get_sync(&(mali_gpu_device.dev));
-		is_runtime = 1;
-	}
-	else
-	{
-		err = pm_runtime_get_sync(&(mali_gpu_device.dev));
-	}
-	if(err < 0)
-	{
-		MALI_PRINT(("OSPMM: Error in _mali_osk_pmm_dev_activate, err : %d\n",err ));
-	}
-#endif /* MALI_PMM_RUNTIME_JOB_CONTROL_ON */
-#endif /* CONFIG_PM_RUNTIME */
-#endif /* MALI_LICENSE_IS_GPL */
-
-	return err;
 }
 
 /* NB: Function is not thread safe */

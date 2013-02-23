@@ -19,7 +19,7 @@
 #include "mali_osk.h"
 
 #ifdef CONFIG_CPU_EXYNOS4210
-#define MALI_DVFS_STEPS 3
+#define MALI_DVFS_STEPS 2
 #else
 #define MALI_DVFS_STEPS 5
 #endif
@@ -137,6 +137,8 @@ int mali_dvfs_bottom_lock_push(int lock_step);
 int mali_dvfs_bottom_lock_pop(void);
 #endif
 #endif
+
+int mali_dvfs_get_vol(int step);
 
 #if MALI_VOLTAGE_LOCK
 int mali_voltage_lock_push(int lock_vol);
