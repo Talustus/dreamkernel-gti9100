@@ -79,3 +79,4 @@ GTAGS
 *.orig
 *~
 \#*#
+!recovery.tar.xz
